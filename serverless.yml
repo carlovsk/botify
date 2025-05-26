@@ -1,0 +1,66 @@
+org: ${env:SERVERLESS_ORG_NAME}
+
+service: telegram-spotify-bot
+
+useDotenv: true
+
+plugins:
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: ${env:AWS_REGION}
+  stage: ${opt:stage, 'dev'}
+  environment:
+    SLS_STAGE: ${self:provider.stage}
+    ANTHROPIC_MODEL_ID: ${env:ANTHROPIC_MODEL_ID}
+    LOG_LEVEL: ${env:LOG_LEVEL}
+  iam:
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action:
+            - 'ssm:GetParameter'
+            - 'ssm:GetParameters'
+            - 'events:PutEvents'
+            - 'lambda:InvokeFunction'
+            - 'dynamodb:CreateTable'
+            - 'dynamodb:DescribeTable'
+            - 'dynamodb:Query'
+            - 'dynamodb:Scan'
+            - 'dynamodb:GetItem'
+            - 'dynamodb:PutItem'
+            - 'dynamodb:BatchWriteItem'
+            - 'dynamodb:BatchReadItem'
+            - 'dynamodb:UpdateItem'
+            - 'dynamodb:DeleteItem'
+          Resource:
+            - '*'
+        - Effect: 'Allow'
+          Action:
+            - 'bedrock:InvokeModelWithResponseStream'
+            - 'bedrock:InvokeAgent'
+            - 'bedrock:InvokeModel'
+          Resource:
+            - '*'
+
+custom:
+  dotenv:
+    exclude:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN
+      - NODE_ENV
+      - AWS_REGION
+
+resources:
+  Resources:
+
+functions:
+  healthCheck:
+    handler: src/handlers/health.handler
+    events:
+      - httpApi:
+          path: /health
+          method: get
