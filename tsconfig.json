@@ -4,8 +4,8 @@
     "lib": [
       "es2021"
     ],
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
     "target": "es2021",
     "allowJs": true,
     "allowSyntheticDefaultImports": true,

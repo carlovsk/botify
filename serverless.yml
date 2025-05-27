@@ -13,9 +13,16 @@ provider:
   region: ${env:AWS_REGION}
   stage: ${opt:stage, 'dev'}
   environment:
+    SERVICE_NAME: ${self:service}
     SLS_STAGE: ${self:provider.stage}
     ANTHROPIC_MODEL_ID: ${env:ANTHROPIC_MODEL_ID}
     LOG_LEVEL: ${env:LOG_LEVEL}
+    API_GATEWAY_URL: ${env:API_GATEWAY_URL}
+    SPOTIFY_CLIENT_ID: ${env:SPOTIFY_CLIENT_ID}
+    SPOTIFY_CLIENT_SECRET: ${env:SPOTIFY_CLIENT_SECRET}
+    SPOTIFY_REDIRECT_URI: ${env:SPOTIFY_REDIRECT_URI}
+    TELEGRAM_USER_ID: ${env:TELEGRAM_USER_ID}
+    TELEGRAM_BOT_TOKEN: ${env:TELEGRAM_BOT_TOKEN}
   iam:
     role:
       statements:
@@ -56,6 +63,21 @@ custom:
 
 resources:
   Resources:
+    chatTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${sls:stage}-Chat
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+          - AttributeName: sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
 
 functions:
   healthCheck:
@@ -64,3 +86,18 @@ functions:
       - httpApi:
           path: /health
           method: get
+  spotifyCallback:
+    handler: src/handlers/spotify.callback
+    events:
+      - httpApi:
+          path: /spotify/callback
+          method: get
+      - httpApi:
+          path: /spotify/callback
+          method: post
+  telegramWebhook:
+    handler: src/handlers/telegram.webhook
+    events:
+      - httpApi:
+          path: /telegram
+          method: post

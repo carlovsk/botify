@@ -1,6 +1,7 @@
 {
   "name": "telegram-spotify-bot",
   "version": "1.0.0",
+  "type": "commonjs",
   "scripts": {
     "start": "serverless dev"
   },
@@ -8,15 +9,23 @@
     "extends": "./.eslintrc.ts"
   },
   "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^0.12.4",
     "@aws-lambda-powertools/logger": "^2.14.0",
     "@aws-sdk/client-apigatewaymanagementapi": "^3.749.0",
     "@aws-sdk/client-dynamodb": "^3.749.0",
     "@aws-sdk/util-dynamodb": "^3.749.0",
+    "@h1deya/langchain-mcp-tools": "^0.2.4",
+    "@langchain/aws": "^0.1.10",
+    "@langchain/core": "^0.3.57",
     "@middy/core": "^6.0.0",
     "@middy/http-cors": "^6.0.0",
-    "@middy/http-json-body-parser": "^6.0.0",
+    "@middy/http-json-body-parser": "^6.3.0",
     "@middy/http-urlencode-body-parser": "^6.0.0",
     "@middy/input-output-logger": "^6.0.0",
+    "@spotify/web-api-ts-sdk": "^1.2.0",
+    "axios": "^1.9.0",
+    "electrodb": "^3.4.1",
+    "langchain": "^0.3.27",
     "luxon": "^3.5.0",
     "ulid": "^2.3.0",
     "zod": "^3.24.2"
@@ -29,6 +38,7 @@
     "@types/node": "22.x",
     "@typescript-eslint/eslint-plugin": "^8.24.0",
     "@typescript-eslint/parser": "^8.24.0",
+    "aws-sdk": "^2.1692.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.3",
