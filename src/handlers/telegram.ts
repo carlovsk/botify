@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import * as middlewares from '../middlewares';
-import { Auth } from '../models';
+import { Auth, Message } from '../models';
 import { SpotifyAgentProvider } from '../providers/agents/spotify';
 import { SpotifyProvider } from '../providers/spotify';
 import { TelegramProvider } from '../providers/telegram';
@@ -41,13 +41,13 @@ export class Handler {
       };
     }
 
-    // await Message.create({
-    //   authorId: message.chat.id.toString(),
-    //   messageId: message.message_id.toString(),
-    //   text: message.text,
-    //   role: 'user',
-    //   type: 'message',
-    // }).go();
+    await Message.create({
+      authorId: message.chat.id.toString(),
+      messageId: message.message_id.toString(),
+      text: message.text,
+      role: 'user',
+      type: 'message',
+    }).go();
 
     const authorization = await Auth.query.byType({ type: 'spotify' }).go();
 
@@ -77,7 +77,16 @@ export class Handler {
 
     const agent = new SpotifyAgentProvider();
 
-    await agent.run(message.text);
+    const response = await agent.run(message.text);
+    const replyMessage = await telegramProvider.sendMessage(response, message.chat.id);
+
+    await Message.create({
+      authorId: replyMessage.result.from.id.toString(),
+      messageId: replyMessage.result.message_id.toString(),
+      text: replyMessage.result.text,
+      role: 'assistant',
+      type: 'message',
+    }).go();
 
     return {
       statusCode: 200,
