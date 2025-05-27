@@ -97,6 +97,7 @@ functions:
           method: post
   telegramWebhook:
     handler: src/handlers/telegram.webhook
+    timeout: 30
     events:
       - httpApi:
           path: /telegram

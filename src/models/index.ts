@@ -87,7 +87,7 @@ export const Auth = new Entity(
       },
     },
     indexes: {
-      byMessageId: {
+      byType: {
         pk: {
           field: 'pk',
           composite: ['type'],

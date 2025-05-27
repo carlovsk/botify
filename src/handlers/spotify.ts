@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { z } from 'zod';
 import * as middlewares from '../middlewares';
 import { Auth } from '../models';
@@ -8,11 +9,13 @@ export const callback = middlewares.base(async (event) => {
 
   const auth = await SpotifyProvider.exchangeCodeForSdk(code);
 
+  const expiresIn = Math.round(DateTime.now().toSeconds() + auth.expires_in);
+
   await Auth.create({
     type: 'spotify',
     accessToken: auth.access_token,
     refreshToken: auth.refresh_token,
-    expiresIn: auth.expires_in,
+    expiresIn,
     scope: auth.scope,
     tokenType: auth.token_type,
   }).go();
