@@ -17,7 +17,7 @@ export const Message = new Entity(
         type: 'string',
         required: true,
       },
-      authorId: {
+      userId: {
         type: 'string',
         required: true,
       },
@@ -38,7 +38,7 @@ export const Message = new Entity(
       byMessageId: {
         pk: {
           field: 'pk',
-          composite: ['authorId'],
+          composite: ['userId'],
         },
         sk: {
           field: 'sk',
@@ -61,8 +61,12 @@ export const Auth = new Entity(
       service: 'chat',
     },
     attributes: {
-      type: {
-        type: ['spotify'] as const,
+      authId: {
+        type: 'string',
+        required: true,
+      },
+      userId: {
+        type: 'string',
         required: true,
       },
       accessToken: {
@@ -87,14 +91,21 @@ export const Auth = new Entity(
       },
     },
     indexes: {
-      byType: {
+      byUserId: {
         pk: {
           field: 'pk',
-          composite: ['type'],
+          composite: ['userId'],
         },
         sk: {
           field: 'sk',
-          composite: ['expiresIn'],
+          composite: ['authId'],
+        },
+      },
+      byAuthId: {
+        index: 'gsi1',
+        pk: {
+          field: 'gsi1pk',
+          composite: ['authId'],
         },
       },
     },

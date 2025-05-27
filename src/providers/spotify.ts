@@ -1,5 +1,6 @@
 import { AccessToken, Device, SpotifyApi } from '@spotify/web-api-ts-sdk';
 import axios from 'axios';
+import { randomUUID } from 'node:crypto';
 import qs from 'node:querystring';
 import { z } from 'zod';
 import { Auth } from '../models';
@@ -53,21 +54,25 @@ export class SpotifyProvider {
     });
   }
 
-  static createAuthorizeURL(state = '', showDialog = false, responseType: 'code' | 'token' = 'code'): string {
+  static createAuthorizeURL(): { url: string; authId: string } {
     const { SPOTIFY_CLIENT_ID, API_GATEWAY_URL } = env();
+
+    const authId = randomUUID();
 
     const params = new URLSearchParams({
       client_id: SPOTIFY_CLIENT_ID,
-      response_type: responseType,
+      response_type: 'code',
       redirect_uri: `${API_GATEWAY_URL}/spotify/callback`,
+      show_dialog: 'false',
+      state: authId,
     });
 
     if (SpotifyProvider.scopes.length) params.append('scope', SpotifyProvider.scopes.join(' '));
 
-    if (state) params.append('state', state);
-    if (showDialog) params.append('show_dialog', 'true');
-
-    return `https://accounts.spotify.com/authorize?${params.toString()}`;
+    return {
+      url: `https://accounts.spotify.com/authorize?${params.toString()}`,
+      authId,
+    };
   }
 
   static async exchangeCodeForSdk(code: string): Promise<TelegramAuthorization> {

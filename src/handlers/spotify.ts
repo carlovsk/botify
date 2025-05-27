@@ -6,19 +6,32 @@ import { SpotifyProvider } from '../providers/spotify';
 
 export const callback = middlewares.base(async (event) => {
   const code = z.string().parse(event.queryStringParameters?.code);
+  const state = z.string().parse(event.queryStringParameters?.state);
 
-  const auth = await SpotifyProvider.exchangeCodeForSdk(code);
+  const auth = await Auth.query.byAuthId({ authId: state }).go();
 
-  const expiresIn = Math.round(DateTime.now().toSeconds() + auth.expires_in);
+  if (auth.data.length === 0) {
+    return {
+      statusCode: 400,
+      body: 'Invalid authorization state.',
+    };
+  }
 
-  await Auth.create({
-    type: 'spotify',
-    accessToken: auth.access_token,
-    refreshToken: auth.refresh_token,
-    expiresIn,
-    scope: auth.scope,
-    tokenType: auth.token_type,
-  }).go();
+  const token = await SpotifyProvider.exchangeCodeForSdk(code);
+  const expiresIn = Math.round(DateTime.now().toSeconds() + token.expires_in);
+
+  await Auth.patch({
+    userId: auth.data[0].userId,
+    authId: auth.data[0].authId,
+  })
+    .set({
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token,
+      expiresIn,
+      scope: token.scope,
+      tokenType: token.token_type,
+    })
+    .go();
 
   return {
     statusCode: 200,
