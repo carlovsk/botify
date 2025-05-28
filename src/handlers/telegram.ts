@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { z } from 'zod';
 import * as middlewares from '../middlewares';
 import { Auth, Message } from '../models';
@@ -85,6 +86,12 @@ export class Handler {
         statusCode: 200,
         body: 'Success',
       };
+    }
+
+    const expiresIn = DateTime.fromSeconds(authorization.data[0].expiresIn);
+
+    if (expiresIn < DateTime.now()) {
+      await SpotifyProvider.refreshAccessToken(userId);
     }
 
     const history = await Message.query

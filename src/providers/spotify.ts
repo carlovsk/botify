@@ -97,6 +97,45 @@ export class SpotifyProvider {
     return TelegramAuthorizationSchema.parse(data);
   }
 
+  static async refreshAccessToken(userId: string): Promise<void> {
+    const { SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET } = env();
+
+    const authorization = await Auth.query.byUserId({ userId }).go();
+
+    if (authorization.data.length === 0) {
+      throw new Error('No Spotify authorization found. Please connect your Spotify account first.');
+    }
+
+    const auth = authorization.data[0];
+
+    const payload = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: auth.refreshToken,
+      client_id: SPOTIFY_CLIENT_ID,
+    });
+
+    const basic = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+
+    const { data } = await axios.post('https://accounts.spotify.com/api/token', payload, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${basic}`,
+      },
+    });
+
+    await Auth.patch({
+      userId,
+      authId: auth.authId,
+    })
+      .set({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token || auth.refreshToken, // Use existing refresh token if not provided
+        expiresIn: data.expires_in,
+        tokenType: data.token_type,
+      })
+      .go();
+  }
+
   async setUsername(): Promise<void> {
     try {
       const user = await this.sdk.currentUser.profile();
