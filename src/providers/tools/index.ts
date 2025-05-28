@@ -10,20 +10,26 @@ export class SpotifyTools {
   static skipTrack = (userId: string) =>
     tool(
       async ({ n }: { n: number }) => {
+        SpotifyTools.logger.info('Starting skipTrack tool execution', { userId, parameters: { n } });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const device = await spotify.findActiveDevice();
 
         if (!device || !device.id) {
-          return 'No active device found';
+          const response = 'No active device found';
+          SpotifyTools.logger.warn('skipTrack tool completed with warning', { userId, response });
+          return response;
         }
 
         await spotify.skipTrack(n, device.id);
-        return 'Skipped to next track';
+        const response = 'Skipped to next track';
+        SpotifyTools.logger.info('skipTrack tool completed successfully', { userId, response });
+        return response;
       },
       {
         name: 'skipTrack',
         description: `
-				Use this tool to skip the current track on Spotify. It will find the active device and skip to the next track.
+                Use this tool to skip the current track on Spotify. It will find the active device and skip to the next track.
       `,
         schema: z.object({
           n: z.number().min(1).max(10).default(1).describe('Number of tracks to skip (default: 1, max: 10)'),
@@ -34,20 +40,26 @@ export class SpotifyTools {
   static pauseTrack = (userId: string) =>
     tool(
       async () => {
+        SpotifyTools.logger.info('Starting pauseTrack tool execution', { userId });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const device = await spotify.findActiveDevice();
 
         if (!device || device.id === null) {
-          return 'No active device found';
+          const response = 'No active device found';
+          SpotifyTools.logger.warn('pauseTrack tool completed with warning', { userId, response });
+          return response;
         }
 
         await spotify.pausePlayback(device);
-        return 'Paused the current track';
+        const response = 'Paused the current track';
+        SpotifyTools.logger.info('pauseTrack tool completed successfully', { userId, response });
+        return response;
       },
       {
         name: 'pauseTrack',
         description: `
-				Use this tool to pause the current track on Spotify. It will find the active device and pause the track playing on it.
+                Use this tool to pause the current track on Spotify. It will find the active device and pause the track playing on it.
       `,
       },
     );
@@ -55,13 +67,19 @@ export class SpotifyTools {
   static resumeTrack = (userId: string) =>
     tool(
       async () => {
+        SpotifyTools.logger.info('Starting resumeTrack tool execution', { userId });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const device = await spotify.findActiveDevice();
         if (!device || device.id === null) {
-          return 'No active device found';
+          const response = 'No active device found';
+          SpotifyTools.logger.warn('resumeTrack tool completed with warning', { userId, response });
+          return response;
         }
         await spotify.resumePlayback({ device });
-        return 'Resumed the current track';
+        const response = 'Resumed the current track';
+        SpotifyTools.logger.info('resumeTrack tool completed successfully', { userId, response });
+        return response;
       },
       {
         name: 'resumeTrack',
@@ -74,15 +92,21 @@ export class SpotifyTools {
   static previousTrack = (userId: string) =>
     tool(
       async () => {
+        SpotifyTools.logger.info('Starting previousTrack tool execution', { userId });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const device = await spotify.findActiveDevice();
 
         if (!device || device.id === null) {
-          return 'No active device found';
+          const response = 'No active device found';
+          SpotifyTools.logger.warn('previousTrack tool completed with warning', { userId, response });
+          return response;
         }
 
         await spotify.previousTrack(device.id);
-        return 'Skipped to previous track';
+        const response = 'Skipped to previous track';
+        SpotifyTools.logger.info('previousTrack tool completed successfully', { userId, response });
+        return response;
       },
       {
         name: 'previousTrack',
@@ -95,9 +119,21 @@ export class SpotifyTools {
   static searchTracks = (userId: string) =>
     tool(
       async ({ query, type = 'track', limit = 10 }: { query: string; type?: string; limit?: MaxInt<50> }) => {
+        SpotifyTools.logger.info('Starting searchTracks tool execution', {
+          userId,
+          parameters: { query, type, limit },
+        });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const results = await spotify.search(query, type, limit);
-        return JSON.stringify(results);
+        const response = JSON.stringify(results);
+
+        SpotifyTools.logger.info('searchTracks tool completed successfully', {
+          userId,
+          responseLength: response.length,
+          resultsCount: results?.tracks?.items?.length || 0,
+        });
+        return response;
       },
       {
         name: 'searchTracks',
@@ -119,9 +155,18 @@ export class SpotifyTools {
   static getCurrentTrack = (userId: string) =>
     tool(
       async () => {
+        SpotifyTools.logger.info('Starting getCurrentTrack tool execution', { userId });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const track = await spotify.getCurrentTrack();
-        return track ? JSON.stringify(track) : 'No track currently playing';
+        const response = track ? JSON.stringify(track) : 'No track currently playing';
+
+        SpotifyTools.logger.info('getCurrentTrack tool completed successfully', {
+          userId,
+          hasTrack: !!track,
+          trackName: track?.name || null,
+        });
+        return response;
       },
       {
         name: 'getCurrentTrack',
@@ -134,13 +179,20 @@ export class SpotifyTools {
   static playTrack = (userId: string) =>
     tool(
       async ({ spotifyUri }: { spotifyUri?: string }) => {
+        SpotifyTools.logger.info('Starting playTrack tool execution', { userId, parameters: { spotifyUri } });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const device = await spotify.findActiveDevice();
         if (!device || device.id === null) {
-          return 'No active device found';
+          const response = 'No active device found';
+          SpotifyTools.logger.warn('playTrack tool completed with warning', { userId, response });
+          return response;
         }
         await spotify.resumePlayback({ spotifyUri, device });
-        return spotifyUri ? `Started playing ${spotifyUri}` : 'Resumed playback';
+        const response = spotifyUri ? `Started playing ${spotifyUri}` : 'Resumed playback';
+
+        SpotifyTools.logger.info('playTrack tool completed successfully', { userId, response, spotifyUri });
+        return response;
       },
       {
         name: 'playTrack',
@@ -153,10 +205,15 @@ export class SpotifyTools {
   static addToQueue = (userId: string) =>
     tool(
       async ({ spotifyUri }: { spotifyUri: string }) => {
+        SpotifyTools.logger.info('Starting addToQueue tool execution', { userId, parameters: { spotifyUri } });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const device = await spotify.findActiveDevice();
         await spotify.addToQueue(spotifyUri, device || undefined);
-        return `Added track ${spotifyUri} to queue`;
+        const response = `Added track ${spotifyUri} to queue`;
+
+        SpotifyTools.logger.info('addToQueue tool completed successfully', { userId, response, spotifyUri });
+        return response;
       },
       {
         name: 'addToQueue',
@@ -172,9 +229,18 @@ export class SpotifyTools {
   static getQueue = (userId: string) =>
     tool(
       async () => {
+        SpotifyTools.logger.info('Starting getQueue tool execution', { userId });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const queue = await spotify.getQueue();
-        return JSON.stringify(queue);
+        const response = JSON.stringify(queue);
+
+        SpotifyTools.logger.info('getQueue tool completed successfully', {
+          userId,
+          responseLength: response.length,
+          queueLength: queue?.queue?.length || 0,
+        });
+        return response;
       },
       {
         name: 'getQueue',
@@ -197,14 +263,27 @@ export class SpotifyTools {
         collaborative?: boolean;
         description?: string;
       }) => {
+        SpotifyTools.logger.info('Starting createPlaylist tool execution', {
+          userId,
+          parameters: { name, isPublic, collaborative, description },
+        });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const playlist = await spotify.createPlaylist(userId, {
+        const playlist = await spotify.createPlaylist({
           name,
           public: isPublic,
           collaborative,
           description,
         });
-        return `Created playlist "${name}" with ID: ${playlist.id}`;
+        const response = `Created playlist "${name}" with ID: ${playlist.id}`;
+
+        SpotifyTools.logger.info('createPlaylist tool completed successfully', {
+          userId,
+          response,
+          playlistId: playlist.id,
+          playlistName: name,
+        });
+        return response;
       },
       {
         name: 'createPlaylist',
@@ -226,9 +305,18 @@ export class SpotifyTools {
   static getUserPlaylists = (userId: string) =>
     tool(
       async ({ limit = 20 }: { limit?: MaxInt<50> } = {}) => {
+        SpotifyTools.logger.info('Starting getUserPlaylists tool execution', { userId, parameters: { limit } });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const playlists = await spotify.getCurrentUserPlaylists(limit);
-        return JSON.stringify(playlists);
+        const response = JSON.stringify(playlists);
+
+        SpotifyTools.logger.info('getUserPlaylists tool completed successfully', {
+          userId,
+          responseLength: response.length,
+          playlistsCount: playlists?.length || 0,
+        });
+        return response;
       },
       {
         name: 'getUserPlaylists',
@@ -241,9 +329,19 @@ export class SpotifyTools {
   static getPlaylistTracks = (userId: string) =>
     tool(
       async ({ playlistId }: { playlistId: string }) => {
+        SpotifyTools.logger.info('Starting getPlaylistTracks tool execution', { userId, parameters: { playlistId } });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const tracks = await spotify.getPlaylistTracks(playlistId);
-        return JSON.stringify(tracks);
+        const response = JSON.stringify(tracks);
+
+        SpotifyTools.logger.info('getPlaylistTracks tool completed successfully', {
+          userId,
+          responseLength: response.length,
+          tracksCount: tracks?.length || 0,
+          playlistId,
+        });
+        return response;
       },
       {
         name: 'getPlaylistTracks',
@@ -256,9 +354,22 @@ export class SpotifyTools {
   static addTracksToPlaylist = (userId: string) =>
     tool(
       async ({ playlistId, trackIds, position }: { playlistId: string; trackIds: string[]; position?: number }) => {
+        SpotifyTools.logger.info('Starting addTracksToPlaylist tool execution', {
+          userId,
+          parameters: { playlistId, trackIds, position, trackCount: trackIds.length },
+        });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         await spotify.addTracksToPlaylist(playlistId, trackIds, position);
-        return `Added ${trackIds.length} tracks to playlist ${playlistId}`;
+        const response = `Added ${trackIds.length} tracks to playlist ${playlistId}`;
+
+        SpotifyTools.logger.info('addTracksToPlaylist tool completed successfully', {
+          userId,
+          response,
+          playlistId,
+          tracksAdded: trackIds.length,
+        });
+        return response;
       },
       {
         name: 'addTracksToPlaylist',
@@ -271,9 +382,22 @@ export class SpotifyTools {
   static removeTracksFromPlaylist = (userId: string) =>
     tool(
       async ({ playlistId, trackIds }: { playlistId: string; trackIds: string[] }) => {
+        SpotifyTools.logger.info('Starting removeTracksFromPlaylist tool execution', {
+          userId,
+          parameters: { playlistId, trackIds, trackCount: trackIds.length },
+        });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         await spotify.removeTracksFromPlaylist(playlistId, trackIds);
-        return `Removed ${trackIds.length} tracks from playlist ${playlistId}`;
+        const response = `Removed ${trackIds.length} tracks from playlist ${playlistId}`;
+
+        SpotifyTools.logger.info('removeTracksFromPlaylist tool completed successfully', {
+          userId,
+          response,
+          playlistId,
+          tracksRemoved: trackIds.length,
+        });
+        return response;
       },
       {
         name: 'removeTracksFromPlaylist',
@@ -286,9 +410,23 @@ export class SpotifyTools {
   static changePlaylistDetails = (userId: string) =>
     tool(
       async ({ playlistId, name, description }: { playlistId: string; name?: string; description?: string }) => {
+        SpotifyTools.logger.info('Starting changePlaylistDetails tool execution', {
+          userId,
+          parameters: { playlistId, name, description },
+        });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         await spotify.changePlaylistDetails(playlistId, name, description);
-        return `Updated playlist ${playlistId} details`;
+        const response = `Updated playlist ${playlistId} details`;
+
+        SpotifyTools.logger.info('changePlaylistDetails tool completed successfully', {
+          userId,
+          response,
+          playlistId,
+          updatedName: !!name,
+          updatedDescription: !!description,
+        });
+        return response;
       },
       {
         name: 'changePlaylistDetails',
@@ -301,9 +439,18 @@ export class SpotifyTools {
   static getDevices = (userId: string) =>
     tool(
       async () => {
+        SpotifyTools.logger.info('Starting getDevices tool execution', { userId });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const devices = await spotify.getDevices();
-        return JSON.stringify(devices);
+        const response = JSON.stringify(devices);
+
+        SpotifyTools.logger.info('getDevices tool completed successfully', {
+          userId,
+          responseLength: response.length,
+          devicesCount: devices?.length || 0,
+        });
+        return response;
       },
       {
         name: 'getDevices',
@@ -316,9 +463,27 @@ export class SpotifyTools {
   static getRecommendations = (userId: string) =>
     tool(
       async ({ artists, tracks, limit = 20 }: { artists?: string[]; tracks?: string[]; limit?: MaxInt<50> } = {}) => {
+        SpotifyTools.logger.info('Starting getRecommendations tool execution', {
+          userId,
+          parameters: {
+            artists,
+            tracks,
+            limit,
+            artistsCount: artists?.length || 0,
+            tracksCount: tracks?.length || 0,
+          },
+        });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const recommendations = await spotify.recommendations(artists, tracks, limit);
-        return JSON.stringify(recommendations);
+        const response = JSON.stringify(recommendations);
+
+        SpotifyTools.logger.info('getRecommendations tool completed successfully', {
+          userId,
+          responseLength: response.length,
+          recommendationsCount: recommendations?.tracks?.length || 0,
+        });
+        return response;
       },
       {
         name: 'getRecommendations',
@@ -331,9 +496,19 @@ export class SpotifyTools {
   static getItemInfo = (userId: string) =>
     tool(
       async ({ spotifyUri }: { spotifyUri: string }) => {
+        SpotifyTools.logger.info('Starting getItemInfo tool execution', { userId, parameters: { spotifyUri } });
+
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const info = await spotify.getInfo(spotifyUri);
-        return JSON.stringify(info);
+        const response = JSON.stringify(info);
+
+        SpotifyTools.logger.info('getItemInfo tool completed successfully', {
+          userId,
+          responseLength: response.length,
+          spotifyUri,
+          itemType: spotifyUri.split(':')[1] || 'unknown',
+        });
+        return response;
       },
       {
         name: 'getItemInfo',
