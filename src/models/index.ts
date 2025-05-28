@@ -35,7 +35,7 @@ export const Message = new Entity(
       },
     },
     indexes: {
-      byMessageId: {
+      byUserId: {
         pk: {
           field: 'pk',
           composite: ['userId'],

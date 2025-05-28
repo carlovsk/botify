@@ -20,6 +20,7 @@ export class SpotifyAgentProvider {
           'system',
           'You are a Spotify agent. You can control playback, search for tracks, and management of playlists. Do not answer questions that are not related to Spotify.',
         ],
+        ['placeholder', '{history}'],
         ['human', '{input}'],
         ['placeholder', '{agent_scratchpad}'],
       ]),

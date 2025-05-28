@@ -29,6 +29,8 @@ export class Handler {
 
     const { message } = BodySchema.parse(event.body);
 
+    const userId = message.chat.id.toString();
+
     if (await this.checkUserId(message)) {
       await telegramProvider.sendMessage(
         `Hello ${message.chat.first_name},\n\nYou said: ${message.text}`,
@@ -42,21 +44,21 @@ export class Handler {
     }
 
     await Message.create({
-      userId: message.chat.id.toString(),
+      userId: userId,
       messageId: message.message_id.toString(),
       text: message.text,
       role: 'user',
       type: 'message',
     }).go();
 
-    const authorization = await Auth.query.byUserId({ userId: message.chat.id.toString() }).go();
+    const authorization = await Auth.query.byUserId({ userId: userId }).go();
 
     if (authorization.data.length === 0) {
       const { url, authId } = SpotifyProvider.createAuthorizeURL();
 
       await Auth.create({
         authId,
-        userId: message.chat.id.toString(),
+        userId: userId,
         accessToken: '',
         refreshToken: '',
         expiresIn: 0,
@@ -85,13 +87,22 @@ export class Handler {
       };
     }
 
+    const history = await Message.query
+      .byUserId({
+        userId: userId,
+      })
+      .go();
+
     const agent = new SpotifyAgentProvider();
 
-    const response = await agent.run(message.text);
+    const response = await agent.run({
+      input: message.text,
+      history: history.data.map((msg) => ({ role: msg.role, content: msg.text })),
+    });
     const replyMessage = await telegramProvider.sendMessage(response, message.chat.id);
 
     await Message.create({
-      userId: replyMessage.result.from.id.toString(),
+      userId: userId,
       messageId: replyMessage.result.message_id.toString(),
       text: replyMessage.result.text,
       role: 'assistant',
