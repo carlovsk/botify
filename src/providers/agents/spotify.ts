@@ -1,6 +1,6 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
-import { AgentProvider } from '.';
+import { LlmProvider } from '../llm/bedrock';
 import { SpotifyTools } from '../tools';
 
 export class SpotifyAgentProvider {
@@ -8,7 +8,7 @@ export class SpotifyAgentProvider {
 
   constructor() {
     const tools = SpotifyTools.listTools();
-    const llm = new AgentProvider().client;
+    const llm = new LlmProvider().client;
 
     llm.bindTools(tools);
 
@@ -32,8 +32,8 @@ export class SpotifyAgentProvider {
     });
   }
 
-  async run(input: string): Promise<string> {
-    const result = await this.agent.invoke({ input, role: 'user' });
+  async run({ input, history }: { input: string; history: { role: string; content: string }[] }): Promise<string> {
+    const result = await this.agent.invoke({ input, history });
     return result.output as string;
   }
 }
