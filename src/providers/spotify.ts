@@ -1,4 +1,4 @@
-import { AccessToken, Device, SpotifyApi } from '@spotify/web-api-ts-sdk';
+import { AccessToken, Device, MaxInt, SpotifyApi } from '@spotify/web-api-ts-sdk';
 import axios from 'axios';
 import { randomUUID } from 'node:crypto';
 import qs from 'node:querystring';
@@ -6,10 +6,12 @@ import { z } from 'zod';
 import { Auth } from '../models';
 import { ParsedTrack, TelegramAuthorization, TelegramAuthorizationSchema } from '../types/spotify';
 import { env } from '../utils/env';
+import { startLogger } from '../utils/logger';
 import * as SpotifyUtils from '../utils/spotify';
 
 export class SpotifyProvider {
   sdk: SpotifyApi;
+  private logger = startLogger('SpotifyProvider');
   private username: string | null = null;
   private clientId: string;
 
@@ -140,9 +142,97 @@ export class SpotifyProvider {
     try {
       const user = await this.sdk.currentUser.profile();
 
-      this.username = user.display_name || null;
+      this.username = user.display_name;
     } catch (error) {
       console.log(`Error setting username: ${error}`);
+      throw error;
+    }
+  }
+
+  async search(query: string, qtype: string = 'track', limit: MaxInt<50> = 10): Promise<any> {
+    if (!this.username) {
+      await this.setUsername();
+    }
+
+    try {
+      const types = qtype.split(',') as Array<'track' | 'album' | 'artist' | 'playlist'>;
+      const results = await this.sdk.search(query, types, 'US', limit);
+
+      if (!results) {
+        throw new Error('No search results found.');
+      }
+
+      return SpotifyUtils.parseSearchResults(results, qtype, this.username);
+    } catch (error) {
+      console.log(`Search error: ${error}`);
+      throw error;
+    }
+  }
+
+  async recommendations(artists?: string[], tracks?: string[], limit: MaxInt<50> = 20): Promise<any> {
+    try {
+      const recommendations = await this.sdk.recommendations.get({
+        seed_artists: artists,
+        seed_tracks: tracks,
+        limit,
+      });
+      return recommendations;
+    } catch (error) {
+      console.log(`Recommendations error: ${error}`);
+      throw error;
+    }
+  }
+
+  async getInfo(itemUri: string): Promise<any> {
+    const [, qtype, itemId] = itemUri.split(':');
+
+    try {
+      switch (qtype) {
+        case 'track': {
+          const track = await this.sdk.tracks.get(itemId);
+          return SpotifyUtils.parseTrack ? SpotifyUtils.parseTrack(track, true) : track;
+        }
+        case 'album': {
+          const album = await this.sdk.albums.get(itemId);
+          return SpotifyUtils.parseAlbum ? SpotifyUtils.parseAlbum(album, true) : album;
+        }
+        case 'artist': {
+          const [artist, albums, topTracks] = await Promise.all([
+            this.sdk.artists.get(itemId),
+            this.sdk.artists.albums(itemId),
+            this.sdk.artists.topTracks(itemId, 'US'),
+          ]);
+
+          const artistInfo = SpotifyUtils.parseArtist ? SpotifyUtils.parseArtist(artist, true) : artist;
+
+          const albumsAndTracks = {
+            albums,
+            tracks: { items: topTracks.tracks },
+          };
+
+          const parsedInfo = SpotifyUtils.parseSearchResults
+            ? SpotifyUtils.parseSearchResults(albumsAndTracks, 'album,track')
+            : albumsAndTracks;
+
+          return {
+            ...artistInfo,
+            top_tracks: parsedInfo.tracks,
+            albums: parsedInfo.albums,
+          };
+        }
+        case 'playlist': {
+          if (!this.username) {
+            await this.setUsername();
+          }
+          const playlist = await this.sdk.playlists.getPlaylist(itemId);
+          console.log(`Playlist info: ${JSON.stringify(playlist)}`);
+          return SpotifyUtils.parsePlaylist ? SpotifyUtils.parsePlaylist(playlist, this.username, true) : playlist;
+        }
+        default:
+          throw new Error(`Unknown qtype: ${qtype}`);
+      }
+    } catch (error) {
+      console.log(`Get info error: ${error}`);
       throw error;
     }
   }
@@ -222,6 +312,145 @@ export class SpotifyProvider {
     } catch (error) {
       console.log(`Error pausing playback: ${error}`);
     }
+  }
+
+  async addToQueue(spotifyUri: string, device?: Device): Promise<void> {
+    try {
+      this.logger.debug('Adding track to queue', { spotifyUri, device });
+
+      const deviceId = z.string().optional().parse(device?.id);
+      await this.sdk.player.addItemToPlaybackQueue(spotifyUri, deviceId);
+    } catch (error) {
+      console.log(`Error adding to queue: ${error}`);
+      throw error;
+    }
+  }
+
+  async getQueue(): Promise<any> {
+    try {
+      const queueInfo = await this.sdk.player.getUsersQueue();
+      const currentTrack = await this.getCurrentTrack();
+
+      return {
+        currently_playing: currentTrack,
+        queue: queueInfo.queue.map((track) => (SpotifyUtils.parseTrack ? SpotifyUtils.parseTrack(track) : track)),
+      };
+    } catch (error) {
+      console.log(`Error getting queue: ${error}`);
+      throw error;
+    }
+  }
+
+  async isTrackPlaying(): Promise<boolean> {
+    try {
+      const currentTrack = await this.getCurrentTrack();
+      return currentTrack?.is_playing || false;
+    } catch (error) {
+      console.log(`Error checking if track is playing: ${error}`);
+      return false;
+    }
+  }
+
+  async getCurrentUserPlaylists(limit: MaxInt<50> = 50): Promise<any[]> {
+    try {
+      const playlists = await this.sdk.currentUser.playlists.playlists(limit);
+      if (!playlists.items.length) {
+        throw new Error('No playlists found.');
+      }
+      return playlists.items.map((playlist) =>
+        SpotifyUtils.parsePlaylist ? SpotifyUtils.parsePlaylist(playlist, this.username) : playlist,
+      );
+    } catch (error) {
+      console.log(`Error getting playlists: ${error}`);
+      throw error;
+    }
+  }
+
+  async getPlaylistTracks(playlistId: string): Promise<any[]> {
+    try {
+      const playlist = await this.sdk.playlists.getPlaylist(playlistId);
+      if (!playlist) {
+        throw new Error('No playlist found.');
+      }
+      return SpotifyUtils.parseTracks ? SpotifyUtils.parseTracks(playlist.tracks.items) : playlist.tracks.items;
+    } catch (error) {
+      console.log(`Error getting playlist tracks: ${error}`);
+      throw error;
+    }
+  }
+
+  async addTracksToPlaylist(playlistId: string, trackIds: string[], position?: number): Promise<void> {
+    if (!playlistId) {
+      throw new Error('No playlist ID provided.');
+    }
+    if (!trackIds.length) {
+      throw new Error('No track IDs provided.');
+    }
+
+    try {
+      const response = await this.sdk.playlists.addItemsToPlaylist(playlistId, trackIds, position);
+      console.log(`Added tracks ${trackIds} to playlist ${playlistId}: ${response}`);
+    } catch (error) {
+      console.log(`Error adding tracks to playlist: ${error}`);
+      throw error;
+    }
+  }
+
+  async removeTracksFromPlaylist(playlistId: string, trackIds: string[]): Promise<void> {
+    if (!playlistId) {
+      throw new Error('No playlist ID provided.');
+    }
+    if (!trackIds.length) {
+      throw new Error('No track IDs provided.');
+    }
+
+    try {
+      const tracks = trackIds.map((uri) => ({ uri }));
+      const response = await this.sdk.playlists.removeItemsFromPlaylist(playlistId, { tracks });
+      console.log(`Removed tracks ${trackIds} from playlist ${playlistId}: ${response}`);
+    } catch (error) {
+      console.log(`Error removing tracks from playlist: ${error}`);
+      throw error;
+    }
+  }
+
+  async changePlaylistDetails(playlistId: string, name?: string, description?: string): Promise<void> {
+    if (!playlistId) {
+      throw new Error('No playlist ID provided.');
+    }
+
+    try {
+      await this.sdk.playlists.changePlaylistDetails(playlistId, {
+        name,
+        description,
+      });
+      console.log('Playlist details changed successfully');
+    } catch (error) {
+      console.log(`Error changing playlist details: ${error}`);
+      throw error;
+    }
+  }
+
+  async createPlaylist(
+    userId: string,
+    params: {
+      name: string;
+      public?: boolean;
+      collaborative?: boolean;
+      description?: string;
+    },
+  ): Promise<any> {
+    this.logger.debug('Creating playlist', { params });
+
+    if (!this.username) {
+      await this.setUsername();
+    }
+
+    const response = await this.sdk.playlists.createPlaylist(userId, params);
+
+    this.logger.debug('Playlist created successfully', { response });
+
+    return response;
   }
 
   async getDevices(): Promise<Device[]> {
