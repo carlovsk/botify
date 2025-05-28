@@ -89,11 +89,11 @@ export class Handler {
 
     const history = await Message.query
       .byUserId({
-        userId: userId,
+        userId,
       })
       .go();
 
-    const agent = new SpotifyAgentProvider();
+    const agent = new SpotifyAgentProvider(userId);
 
     const response = await agent.run({
       input: message.text,

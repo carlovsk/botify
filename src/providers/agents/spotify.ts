@@ -6,8 +6,8 @@ import { SpotifyTools } from '../tools';
 export class SpotifyAgentProvider {
   private agent: AgentExecutor;
 
-  constructor() {
-    const tools = SpotifyTools.listTools();
+  constructor(userId: string) {
+    const tools = SpotifyTools.listTools(userId);
     const llm = new LlmProvider().client;
 
     llm.bindTools(tools);

@@ -38,8 +38,8 @@ export class SpotifyProvider {
     this.sdk = SpotifyApi.withAccessToken(this.clientId, token);
   }
 
-  static async buildClientWithAuth(): Promise<SpotifyProvider> {
-    const authorization = await Auth.query.byType({ type: 'spotify' }).go();
+  static async buildClientWithAuth(userId: string): Promise<SpotifyProvider> {
+    const authorization = await Auth.query.byUserId({ userId }).go();
 
     if (authorization.data.length === 0) {
       throw new Error('No Spotify authorization found. Please connect your Spotify account first.');
