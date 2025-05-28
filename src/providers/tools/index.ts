@@ -44,7 +44,52 @@ export class SpotifyTools {
       },
     );
 
+  static resumeTrack = (userId: string) =>
+    tool(
+      async () => {
+        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
+        const device = await spotify.findActiveDevice();
+        if (!device || device.id === null) {
+          return 'No active device found';
+        }
+        await spotify.resumePlayback({ device });
+        return 'Resumed the current track';
+      },
+      {
+        name: 'resumeTrack',
+        description: `
+        Use this tool to resume the current track on Spotify. It will find the active device and resume playback.
+      `,
+      },
+    );
+
+  static previousTrack = (userId: string) =>
+    tool(
+      async () => {
+        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
+        const device = await spotify.findActiveDevice();
+
+        if (!device || device.id === null) {
+          return 'No active device found';
+        }
+
+        await spotify.previousTrack(device.id);
+        return 'Skipped to previous track';
+      },
+      {
+        name: 'previousTrack',
+        description: `
+        Use this tool to skip to the previous track on Spotify. It will find the active device and skip to the previous track.
+      `,
+      },
+    );
+
   static listTools(userId: string) {
-    return [SpotifyTools.skipTrack(userId), SpotifyTools.pauseTrack(userId)];
+    return [
+      SpotifyTools.skipTrack(userId),
+      SpotifyTools.pauseTrack(userId),
+      SpotifyTools.resumeTrack(userId),
+      SpotifyTools.previousTrack(userId),
+    ];
   }
 }

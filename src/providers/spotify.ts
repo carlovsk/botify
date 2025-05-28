@@ -180,6 +180,38 @@ export class SpotifyProvider {
     }
   }
 
+  async resumePlayback({ spotifyUri, device }: { spotifyUri?: string; device?: Device }): Promise<any> {
+    try {
+      console.log(`Starting playback for spotify_uri: ${spotifyUri} on ${device?.name}`);
+
+      if (!spotifyUri) {
+        if (await this.isTrackPlaying()) {
+          return 'Playback is already active, no need to resume.';
+        }
+        if (!(await this.getCurrentTrack())) {
+          throw new Error('No track_id provided and no current playback to resume.');
+        }
+      }
+
+      const deviceId = z.string().parse(device?.id);
+
+      if (spotifyUri) {
+        if (spotifyUri.startsWith('spotify:track:')) {
+          await this.sdk.player.startResumePlayback(deviceId, undefined, [spotifyUri]);
+        } else {
+          await this.sdk.player.startResumePlayback(deviceId, spotifyUri);
+        }
+      } else {
+        await this.sdk.player.startResumePlayback(deviceId);
+      }
+
+      console.log('Playback started successfully');
+    } catch (error) {
+      console.log(`Error starting playback: ${error}`);
+      throw error;
+    }
+  }
+
   async pausePlayback(device?: Device): Promise<void> {
     try {
       const playback = await this.sdk.player.getPlaybackState();
@@ -219,6 +251,15 @@ export class SpotifyProvider {
       }
     } catch (error) {
       console.log(`Error skipping track: ${error}`);
+      throw error;
+    }
+  }
+
+  async previousTrack(deviceId: string): Promise<void> {
+    try {
+      await this.sdk.player.skipToPrevious(deviceId);
+    } catch (error) {
+      console.log(`Error going to previous track: ${error}`);
       throw error;
     }
   }
