@@ -31,6 +31,7 @@ export class Handler {
     const { message } = BodySchema.parse(event.body);
 
     const userId = message.chat.id.toString();
+    const messageId = message.message_id.toString();
 
     if (await this.checkUserId(message)) {
       await telegramProvider.sendMessage(
@@ -44,9 +45,18 @@ export class Handler {
       };
     }
 
+    if ((await Message.get({ userId, messageId }).go()).data) {
+      console.log('Message already been processed');
+
+      return {
+        statusCode: 200,
+        body: 'Success',
+      };
+    }
+
     await Message.create({
-      userId: userId,
-      messageId: message.message_id.toString(),
+      userId,
+      messageId,
       text: message.text,
       role: 'user',
       type: 'message',
