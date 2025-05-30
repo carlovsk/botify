@@ -6,7 +6,7 @@ export class LlmProvider {
 
   constructor() {
     this.client = new ChatBedrockConverse({
-      model: process.env.ANTHROPIC_MODEL_ID,
+      model: process.env.AWS_BEDROCK_MODEL_ID,
       region: z.string().parse(process.env.AWS_REGION),
       temperature: 0.3,
     });

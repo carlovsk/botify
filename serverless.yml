@@ -15,7 +15,7 @@ provider:
   environment:
     SERVICE_NAME: ${self:service}
     SLS_STAGE: ${self:provider.stage}
-    ANTHROPIC_MODEL_ID: ${env:ANTHROPIC_MODEL_ID}
+    AWS_BEDROCK_MODEL_ID: ${env:AWS_BEDROCK_MODEL_ID}
     LOG_LEVEL: ${env:LOG_LEVEL}
     API_GATEWAY_URL: ${env:API_GATEWAY_URL}
     SPOTIFY_CLIENT_ID: ${env:SPOTIFY_CLIENT_ID}
