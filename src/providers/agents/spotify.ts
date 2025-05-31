@@ -1,6 +1,7 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
 import { LlmProvider } from '../llm/bedrock';
+import { Prompts } from '../prompts';
 import { SpotifyTools } from '../tools';
 
 export class SpotifyAgentProvider {
@@ -16,10 +17,7 @@ export class SpotifyAgentProvider {
       llm,
       tools,
       prompt: ChatPromptTemplate.fromMessages([
-        [
-          'system',
-          'You are a Spotify agent. You can control playback, search for tracks, and management of playlists. Do not answer questions that are not related to Spotify.',
-        ],
+        ['system', Prompts.SpotifyAgent],
         ['placeholder', '{history}'],
         ['human', '{input}'],
         ['placeholder', '{agent_scratchpad}'],

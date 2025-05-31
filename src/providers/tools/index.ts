@@ -2,6 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { MaxInt } from '@spotify/web-api-ts-sdk';
 import { z } from 'zod';
 import { startLogger } from '../../utils/logger';
+import { Prompts } from '../prompts';
 import { SpotifyProvider } from '../spotify';
 
 export class SpotifyTools {
@@ -28,9 +29,7 @@ export class SpotifyTools {
       },
       {
         name: 'skipTrack',
-        description: `
-                Use this tool to skip the current track on Spotify. It will find the active device and skip to the next track.
-      `,
+        description: Prompts.SkipTrackTool,
         schema: z.object({
           n: z.number().min(1).max(10).default(1).describe('Number of tracks to skip (default: 1, max: 10)'),
         }),
@@ -58,9 +57,7 @@ export class SpotifyTools {
       },
       {
         name: 'pauseTrack',
-        description: `
-                Use this tool to pause the current track on Spotify. It will find the active device and pause the track playing on it.
-      `,
+        description: Prompts.PauseTrackTool,
       },
     );
 
@@ -83,9 +80,7 @@ export class SpotifyTools {
       },
       {
         name: 'resumeTrack',
-        description: `
-        Use this tool to resume the current track on Spotify. It will find the active device and resume playback.
-      `,
+        description: Prompts.ResumeTrackTool,
       },
     );
 
@@ -110,9 +105,7 @@ export class SpotifyTools {
       },
       {
         name: 'previousTrack',
-        description: `
-        Use this tool to skip to the previous track on Spotify. It will find the active device and skip to the previous track.
-      `,
+        description: Prompts.PreviousTrackTool,
       },
     );
 
@@ -148,10 +141,7 @@ export class SpotifyTools {
       },
       {
         name: 'search',
-        description: `
-        Search for tracks, albums, artists, or playlists on Spotify. You can specify the type or types to search for.
-        Parameters: query (required), type (track,album,artist,playlist - default: track), limit (default: 10, range 1-50).
-        `,
+        description: Prompts.SearchTool,
         schema: z.object({
           query: z.string().describe('Search query'),
           types: z
@@ -184,24 +174,24 @@ export class SpotifyTools {
       },
       {
         name: 'getCurrentTrack',
-        description: `
-        Get information about the currently playing track on Spotify.
-        `,
+        description: Prompts.GetCurrentTrackTool,
       },
     );
 
   static playTrack = (userId: string) =>
     tool(
-      async ({ spotifyUri }: { spotifyUri?: string }) => {
+      async ({ spotifyUri }: { spotifyUri: string }) => {
         SpotifyTools.logger.info('Starting playTrack tool execution', { userId, parameters: { spotifyUri } });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
         const device = await spotify.findActiveDevice();
+
         if (!device || device.id === null) {
           const response = 'No active device found';
           SpotifyTools.logger.warn('playTrack tool completed with warning', { userId, response });
           return response;
         }
+
         await spotify.resumePlayback({ spotifyUri, device });
         const response = spotifyUri ? `Started playing ${spotifyUri}` : 'Resumed playback';
 
@@ -210,9 +200,12 @@ export class SpotifyTools {
       },
       {
         name: 'playTrack',
-        description: `
-        Play a specific track or resume playback. Provide spotifyUri to play a specific track, or leave empty to resume current playback.
-        `,
+        description: Prompts.PlayTrackTool,
+        schema: z.object({
+          spotifyUri: z
+            .string()
+            .describe('Spotify URI of the track to play (e.g., "spotify:track:4iV5W9uYEdYUVa79Axb7Rh")'),
+        }),
       },
     );
 
@@ -231,9 +224,7 @@ export class SpotifyTools {
       },
       {
         name: 'addToQueue',
-        description: `
-          Add a track to the playback queue. Requires spotifyUri parameter.
-        `,
+        description: Prompts.AddToQueueTool,
         schema: z.object({
           spotifyUri: z.string().describe('Spotify track ID to add to the queue'),
         }),
@@ -280,9 +271,7 @@ export class SpotifyTools {
       },
       {
         name: 'createPlaylist',
-        description: `
-        Create a new playlist for the user. Requires name parameter. Optional: isPublic (default: false), collaborative (default: false), description.
-        `,
+        description: Prompts.CreatePlaylistTool,
         schema: z.object({
           name: z.string().describe('Name of the playlist'),
           isPublic: z.boolean().default(false).describe('Whether the playlist should be public (default: false)'),
@@ -315,9 +304,7 @@ export class SpotifyTools {
       },
       {
         name: 'getUserPlaylists',
-        description: `
-        Get the current user's playlists. Optional limit parameter (default: 20, range 1-50).
-        `,
+        description: Prompts.GetUserPlaylistsTool,
       },
     );
 
@@ -336,14 +323,12 @@ export class SpotifyTools {
           tracksCount: tracks?.length || 0,
           playlistId,
         });
+
         return response;
       },
       {
         name: 'getPlaylistTracks',
-        description: `
-        Get tracks from a specific playlist. Requires playlistId. It must not be the playlist name or URL, but the actual ID of the playlist.
-        Example: "20IbCJU44k7jQBdXV7aHUe" (not the full URL or name).
-        `,
+        description: Prompts.GetPlaylistTracksTool,
         schema: z.object({
           playlistId: z.string().describe('ID of the playlist to retrieve tracks from'),
         }),
@@ -372,9 +357,7 @@ export class SpotifyTools {
       },
       {
         name: 'addTracksToPlaylist',
-        description: `
-        Add tracks to a playlist. Requires playlistId and tracksUris array. Optional position parameter.
-        `,
+        description: Prompts.AddTracksToPlaylistTool,
         schema: z.object({
           playlistId: z.string().describe('ID of the playlist to add tracks to'),
           tracksUris: z
@@ -415,9 +398,7 @@ export class SpotifyTools {
       },
       {
         name: 'removeTracksFromPlaylist',
-        description: `
-        Remove tracks from a playlist. Requires playlistId and trackIds array.
-        `,
+        description: Prompts.RemoveTracksFromPlaylistTool,
       },
     );
 
@@ -444,9 +425,7 @@ export class SpotifyTools {
       },
       {
         name: 'changePlaylistDetails',
-        description: `
-        Change playlist name and/or description. Requires playlistId, optional name and description parameters.
-        `,
+        description: Prompts.ChangePlaylistDetailsTool,
       },
     );
 
