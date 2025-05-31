@@ -116,38 +116,47 @@ export class SpotifyTools {
       },
     );
 
-  static searchTracks = (userId: string) =>
+  static search = (userId: string) =>
     tool(
-      async ({ query, type = 'track', limit = 10 }: { query: string; type?: string; limit?: MaxInt<50> }) => {
-        SpotifyTools.logger.info('Starting searchTracks tool execution', {
+      async ({
+        query,
+        types,
+        limit = 10,
+      }: {
+        query: string;
+        types: ('track' | 'album' | 'artist' | 'playlist')[];
+        limit?: MaxInt<50>;
+      }) => {
+        SpotifyTools.logger.info('Starting search tool execution', {
           userId,
-          parameters: { query, type, limit },
+          parameters: { query, types, limit },
         });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const results = await spotify.search(query, type, limit);
+        const results = await spotify.search(query, types, limit);
+
         const response = JSON.stringify(results);
 
-        SpotifyTools.logger.info('searchTracks tool completed successfully', {
+        SpotifyTools.logger.info('search tool completed successfully', {
           userId,
           query,
-          type,
+          types,
           responseLength: response.length,
           resultsCount: results?.tracks?.items?.length || 0,
         });
         return response;
       },
       {
-        name: 'searchTracks',
+        name: 'search',
         description: `
-        Search for tracks, albums, artists, or playlists on Spotify. 
+        Search for tracks, albums, artists, or playlists on Spotify. You can specify the type or types to search for.
         Parameters: query (required), type (track,album,artist,playlist - default: track), limit (default: 10, range 1-50).
         `,
         schema: z.object({
           query: z.string().describe('Search query'),
-          type: z
+          types: z
             .enum(['track', 'album', 'artist', 'playlist'])
-            .default('track')
+            .array()
             .describe('Type of item to search for (track, album, artist, playlist)'),
           limit: z.number().min(1).max(50).default(10).describe('Number of results to return (1-50)'),
         }),
@@ -160,7 +169,10 @@ export class SpotifyTools {
         SpotifyTools.logger.info('Starting getCurrentTrack tool execution', { userId });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const track = await spotify.getCurrentTrack();
+
+        const res = await spotify.getCurrentTrack();
+        const track = res?.track;
+
         const response = track ? JSON.stringify(track) : 'No track currently playing';
 
         SpotifyTools.logger.info('getCurrentTrack tool completed successfully', {
@@ -228,30 +240,6 @@ export class SpotifyTools {
       },
     );
 
-  static getQueue = (userId: string) =>
-    tool(
-      async () => {
-        SpotifyTools.logger.info('Starting getQueue tool execution', { userId });
-
-        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const queue = await spotify.getQueue();
-        const response = JSON.stringify(queue);
-
-        SpotifyTools.logger.info('getQueue tool completed successfully', {
-          userId,
-          responseLength: response.length,
-          queueLength: queue?.queue?.length || 0,
-        });
-        return response;
-      },
-      {
-        name: 'getQueue',
-        description: `
-        Get the current playback queue and currently playing track.
-        `,
-      },
-    );
-
   static createPlaylist = (userId: string) =>
     tool(
       async ({
@@ -271,8 +259,11 @@ export class SpotifyTools {
         });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
+
+        const { user } = await spotify.getUserProfile();
         const playlist = await spotify.createPlaylist({
           name,
+          userId: user.id,
           public: isPublic,
           collaborative,
           description,
@@ -310,14 +301,16 @@ export class SpotifyTools {
         SpotifyTools.logger.info('Starting getUserPlaylists tool execution', { userId, parameters: { limit } });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const playlists = await spotify.getCurrentUserPlaylists(limit);
-        const response = JSON.stringify(playlists);
+
+        const { user } = await spotify.getUserProfile();
+        const { playlists } = await spotify.getCurrentUserPlaylists(limit);
+        const response = JSON.stringify({ user, playlists });
 
         SpotifyTools.logger.info('getUserPlaylists tool completed successfully', {
           userId,
-          responseLength: response.length,
-          playlistsCount: playlists?.length || 0,
+          playlistsCount: playlists.length,
         });
+
         return response;
       },
       {
@@ -334,7 +327,7 @@ export class SpotifyTools {
         SpotifyTools.logger.info('Starting getPlaylistTracks tool execution', { userId, parameters: { playlistId } });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const tracks = await spotify.getPlaylistTracks(playlistId);
+        const { tracks } = await spotify.getPlaylistTracks(playlistId);
         const response = JSON.stringify(tracks);
 
         SpotifyTools.logger.info('getPlaylistTracks tool completed successfully', {
@@ -348,8 +341,12 @@ export class SpotifyTools {
       {
         name: 'getPlaylistTracks',
         description: `
-        Get tracks from a specific playlist. Requires playlistId parameter.
+        Get tracks from a specific playlist. Requires playlistId. It must not be the playlist name or URL, but the actual ID of the playlist.
+        Example: "20IbCJU44k7jQBdXV7aHUe" (not the full URL or name).
         `,
+        schema: z.object({
+          playlistId: z.string().describe('ID of the playlist to retrieve tracks from'),
+        }),
       },
     );
 
@@ -453,108 +450,22 @@ export class SpotifyTools {
       },
     );
 
-  static getDevices = (userId: string) =>
-    tool(
-      async () => {
-        SpotifyTools.logger.info('Starting getDevices tool execution', { userId });
-
-        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const devices = await spotify.getDevices();
-        const response = JSON.stringify(devices);
-
-        SpotifyTools.logger.info('getDevices tool completed successfully', {
-          userId,
-          responseLength: response.length,
-          devicesCount: devices?.length || 0,
-        });
-        return response;
-      },
-      {
-        name: 'getDevices',
-        description: `
-        Get all available Spotify devices for the user.
-        `,
-      },
-    );
-
-  static getRecommendations = (userId: string) =>
-    tool(
-      async ({ artists, tracks, limit = 20 }: { artists?: string[]; tracks?: string[]; limit?: MaxInt<50> } = {}) => {
-        SpotifyTools.logger.info('Starting getRecommendations tool execution', {
-          userId,
-          parameters: {
-            artists,
-            tracks,
-            limit,
-            artistsCount: artists?.length || 0,
-            tracksCount: tracks?.length || 0,
-          },
-        });
-
-        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const recommendations = await spotify.recommendations(artists, tracks, limit);
-        const response = JSON.stringify(recommendations);
-
-        SpotifyTools.logger.info('getRecommendations tool completed successfully', {
-          userId,
-          responseLength: response.length,
-          recommendationsCount: recommendations?.tracks?.length || 0,
-        });
-        return response;
-      },
-      {
-        name: 'getRecommendations',
-        description: `
-        Get track recommendations based on seed artists and/or tracks. Optional parameters: artists array, tracks array, limit (default: 20, range 1-50).
-        `,
-      },
-    );
-
-  static getItemInfo = (userId: string) =>
-    tool(
-      async ({ spotifyUri }: { spotifyUri: string }) => {
-        SpotifyTools.logger.info('Starting getItemInfo tool execution', { userId, parameters: { spotifyUri } });
-
-        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const info = await spotify.getInfo(spotifyUri);
-        const response = JSON.stringify(info);
-
-        SpotifyTools.logger.info('getItemInfo tool completed successfully', {
-          userId,
-          responseLength: response.length,
-          spotifyUri,
-          itemType: spotifyUri.split(':')[1] || 'unknown',
-        });
-        return response;
-      },
-      {
-        name: 'getItemInfo',
-        description: `
-        Get detailed information about a Spotify item (track, album, artist, or playlist). Requires spotifyUri parameter.
-        `,
-      },
-    );
-
   static listTools(userId: string) {
     return [
       SpotifyTools.skipTrack(userId),
       SpotifyTools.pauseTrack(userId),
       SpotifyTools.resumeTrack(userId),
       SpotifyTools.previousTrack(userId),
-      SpotifyTools.searchTracks(userId),
+      SpotifyTools.search(userId),
       SpotifyTools.getCurrentTrack(userId),
       SpotifyTools.playTrack(userId),
       SpotifyTools.addToQueue(userId),
-      SpotifyTools.getQueue(userId),
       SpotifyTools.createPlaylist(userId),
       SpotifyTools.getUserPlaylists(userId),
       SpotifyTools.getPlaylistTracks(userId),
       SpotifyTools.addTracksToPlaylist(userId),
       SpotifyTools.removeTracksFromPlaylist(userId),
       SpotifyTools.changePlaylistDetails(userId),
-      SpotifyTools.getDevices(userId),
-      SpotifyTools.getRecommendations(userId),
-      SpotifyTools.getItemInfo(userId),
     ];
   }
 }

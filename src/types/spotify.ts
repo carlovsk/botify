@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const TelegramAuthorizationSchema = z.object({
+export const SpotifyAuthorizationSchema = z.object({
   access_token: z.string(),
   refresh_token: z.string(),
   expires_in: z.number(),
@@ -8,61 +8,89 @@ export const TelegramAuthorizationSchema = z.object({
   token_type: z.string(),
 });
 
-export type TelegramAuthorization = z.infer<typeof TelegramAuthorizationSchema>;
+export type TelegramAuthorization = z.infer<typeof SpotifyAuthorizationSchema>;
 
-export type ParsedTrack = {
-  name: string;
-  id: string;
-  is_playing?: boolean;
-  album?: ParsedAlbum;
-  track_number?: number;
-  duration_ms?: number;
-  is_playable?: boolean;
-  artist?: string | ParsedArtist;
-  artists?: (string | ParsedArtist)[];
-};
+export const UserSchema = z.object({
+  display_name: z.string(),
+  href: z.string().url(),
+  id: z.string(),
+  type: z.literal('user'),
+  uri: z.string(),
+});
 
-export type ParsedArtist = {
-  name: string;
-  id: string;
-  genres?: string[];
-};
+export type User = z.infer<typeof UserSchema>;
 
-export type ParsedPlaylist = {
-  name: string;
-  id: string;
-  owner: string;
-  user_is_owner: boolean;
-  total_tracks: number;
-  description?: string;
-  tracks?: ParsedTrack[];
-};
+export const ImageSchema = z.object({
+  height: z.number().nullable(),
+  width: z.number().nullable(),
+  url: z.string().url(),
+});
 
-export type ParsedAlbum = {
-  name: string;
-  id: string;
-  artist?: string | ParsedArtist;
-  artists?: (string | ParsedArtist)[];
-  tracks?: ParsedTrack[];
-  total_tracks?: number;
-  release_date?: string;
-  genres?: string[];
-};
+export const ArtistSchema = z.object({
+  external_urls: z.object({
+    spotify: z.string().url(),
+  }),
+  href: z.string().url(),
+  id: z.string(),
+  name: z.string(),
+  type: z.literal('artist'),
+  uri: z.string(),
+});
 
-export type SearchResults = {
-  tracks?: ParsedTrack[];
-  artists?: ParsedArtist[];
-  playlists?: ParsedPlaylist[];
-  albums?: ParsedAlbum[];
-};
+export const PlaylistSchema = z.object({
+  collaborative: z.boolean(),
+  description: z.string().nullable(),
+  external_urls: z.object({
+    spotify: z.string().url(),
+  }),
+  href: z.string().url(),
+  id: z.string(),
+  name: z.string(),
+  owner: UserSchema,
+  primary_color: z.nullable(z.string()),
+  public: z.boolean().nullable(),
+  snapshot_id: z.string(),
+  tracks: z.object({
+    href: z.string().url(),
+    total: z.number(),
+  }),
+  type: z.literal('playlist'),
+  uri: z.string(),
+});
 
-export type SearchQueryOptions = {
-  artist?: string;
-  track?: string;
-  album?: string;
-  year?: string;
-  yearRange?: [number, number];
-  genre?: string;
-  isHipster?: boolean;
-  isNew?: boolean;
-};
+export type Playlist = z.infer<typeof PlaylistSchema>;
+
+export const AlbumSchema = z.object({
+  album_type: z.string(),
+  total_tracks: z.number(),
+  available_markets: z.string().array(),
+  external_urls: z.object({
+    spotify: z.string().url(),
+  }),
+  href: z.string().url(),
+  id: z.string(),
+  images: ImageSchema.array(),
+  name: z.string(),
+  release_date: z.string(),
+  release_date_precision: z.literal('day'),
+  type: z.literal('album'),
+  uri: z.string(),
+  artists: ArtistSchema.array(),
+});
+
+export const TrackSchema = z.object({
+  album: AlbumSchema.array(),
+  artists: ArtistSchema.array(),
+  available_markets: z.string().array(),
+  disc_number: z.number(),
+  duration_ms: z.number(),
+  explicit: z.boolean(),
+  href: z.string().url(),
+  id: z.string(),
+  name: z.string(),
+  track_number: z.number(),
+  type: z.literal('track'),
+  uri: z.string(),
+});
+
+export type Track = z.infer<typeof TrackSchema>;

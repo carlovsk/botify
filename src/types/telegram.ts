@@ -7,4 +7,12 @@ export const TelegramUserSchema = z.object({
   username: z.string().optional(),
 });
 
-export type User = z.infer<typeof TelegramUserSchema>;
+export type TelegramUser = z.infer<typeof TelegramUserSchema>;
+
+export const TelegramMessageSchema = z.object({
+  message_id: z.number(),
+  text: z.string(),
+  date: z.coerce.date(),
+  chat: TelegramUserSchema,
+});
+export type TelegramMessage = z.infer<typeof TelegramMessageSchema>;

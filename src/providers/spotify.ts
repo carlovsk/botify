@@ -4,10 +4,18 @@ import { randomUUID } from 'node:crypto';
 import qs from 'node:querystring';
 import { z } from 'zod';
 import { Auth } from '../models';
-import { ParsedTrack, TelegramAuthorization, TelegramAuthorizationSchema } from '../types/spotify';
+import {
+  Playlist,
+  PlaylistSchema,
+  SpotifyAuthorizationSchema,
+  TelegramAuthorization,
+  Track,
+  TrackSchema,
+  User,
+  UserSchema,
+} from '../types/spotify';
 import { env } from '../utils/env';
 import { startLogger } from '../utils/logger';
-import * as SpotifyUtils from '../utils/spotify';
 
 export class SpotifyProvider {
   sdk: SpotifyApi;
@@ -95,7 +103,7 @@ export class SpotifyProvider {
       },
     });
 
-    return TelegramAuthorizationSchema.parse(data);
+    return SpotifyAuthorizationSchema.parse(data);
   }
 
   static async refreshAccessToken(userId: string): Promise<void> {
@@ -137,149 +145,71 @@ export class SpotifyProvider {
       .go();
   }
 
-  async getUserProfile(): Promise<{
-    display_name: string;
-    email: string;
-    href: string;
-    id: string;
-    type: string;
-    uri: string;
-  }> {
+  async getUserProfile(): Promise<{ user: User }> {
     try {
       const user = await this.sdk.currentUser.profile();
-      return user;
+      return { user: UserSchema.parse(user) };
     } catch (error) {
-      console.log(`Error setting username: ${error}`);
+      this.logger.debug(`Error setting username: ${error}`);
       throw error;
     }
   }
 
-  async search(query: string, qtype: string = 'track', limit: MaxInt<50> = 10): Promise<any> {
-    const user = await this.getUserProfile();
-
+  async search(
+    query: string,
+    types: ('track' | 'album' | 'artist' | 'playlist')[],
+    limit: MaxInt<50> = 10,
+  ): Promise<any> {
     try {
-      const types = qtype.split(',') as Array<'track' | 'album' | 'artist' | 'playlist'>;
-      const results = await this.sdk.search(query, types, 'US', limit);
+      const results = await this.sdk.search(query, types, undefined, limit);
 
       if (!results) {
         throw new Error('No search results found.');
       }
 
-      return SpotifyUtils.parseSearchResults(results, qtype, user.display_name);
+      return results;
     } catch (error) {
-      console.log(`Search error: ${error}`);
+      this.logger.debug(`Search error: ${error}`);
       throw error;
     }
   }
 
-  async recommendations(artists?: string[], tracks?: string[], limit: MaxInt<50> = 20): Promise<any> {
+  async getCurrentTrack(): Promise<{ track: Track; isPlaying: boolean } | null> {
     try {
-      const recommendations = await this.sdk.recommendations.get({
-        seed_artists: artists,
-        seed_tracks: tracks,
-        limit,
-      });
-      return recommendations;
-    } catch (error) {
-      console.log(`Recommendations error: ${error}`);
-      throw error;
-    }
-  }
+      const response = await this.sdk.player.getCurrentlyPlayingTrack();
+      this.logger.debug('Current track response', { response });
 
-  async getInfo(itemUri: string): Promise<any> {
-    const [, qtype, itemId] = itemUri.split(':');
-
-    try {
-      switch (qtype) {
-        case 'track': {
-          const track = await this.sdk.tracks.get(itemId);
-          return SpotifyUtils.parseTrack ? SpotifyUtils.parseTrack(track, true) : track;
-        }
-        case 'album': {
-          const album = await this.sdk.albums.get(itemId);
-          return SpotifyUtils.parseAlbum ? SpotifyUtils.parseAlbum(album, true) : album;
-        }
-        case 'artist': {
-          const [artist, albums, topTracks] = await Promise.all([
-            this.sdk.artists.get(itemId),
-            this.sdk.artists.albums(itemId),
-            this.sdk.artists.topTracks(itemId, 'US'),
-          ]);
-
-          const artistInfo = SpotifyUtils.parseArtist ? SpotifyUtils.parseArtist(artist, true) : artist;
-
-          const albumsAndTracks = {
-            albums,
-            tracks: { items: topTracks.tracks },
-          };
-
-          const parsedInfo = SpotifyUtils.parseSearchResults
-            ? SpotifyUtils.parseSearchResults(albumsAndTracks, 'album,track')
-            : albumsAndTracks;
-
-          return {
-            ...artistInfo,
-            top_tracks: parsedInfo.tracks,
-            albums: parsedInfo.albums,
-          };
-        }
-        case 'playlist': {
-          const user = await this.getUserProfile();
-          const playlist = await this.sdk.playlists.getPlaylist(itemId);
-          console.log(`Playlist info: ${JSON.stringify(playlist)}`);
-          return SpotifyUtils.parsePlaylist ? SpotifyUtils.parsePlaylist(playlist, user.display_name, true) : playlist;
-        }
-        default:
-          throw new Error(`Unknown qtype: ${qtype}`);
-      }
-    } catch (error) {
-      console.log(`Get info error: ${error}`);
-      throw error;
-    }
-  }
-
-  async getCurrentTrack(): Promise<ParsedTrack | null> {
-    try {
-      const current = await this.sdk.player.getCurrentlyPlayingTrack();
-
-      if (!current) {
-        console.log('No playback session found');
+      if (!response) {
+        this.logger.debug('No playback session found');
         return null;
       }
 
-      if (current.currently_playing_type !== 'track') {
-        console.log('Current playback is not a track');
+      if (response.currently_playing_type !== 'track') {
+        this.logger.debug('Current playback is not a track');
         return null;
       }
 
-      const trackInfo = SpotifyUtils.parseTrack(current.item);
+      const track = TrackSchema.parse(response.item);
 
-      if (!trackInfo) {
-        console.log('Failed to parse current track');
-        return null;
-      }
-
-      if (current.is_playing !== undefined) {
-        trackInfo.is_playing = current.is_playing;
-      }
-
-      console.log(`Current track: ${trackInfo.name || 'Unknown'} by ${trackInfo.artist || 'Unknown'}`);
-      return trackInfo;
+      return {
+        track,
+        isPlaying: response.is_playing,
+      };
     } catch (error) {
-      console.log('Error getting current track info');
+      this.logger.debug('Error getting current track info', { error });
       throw error;
     }
   }
 
   async resumePlayback({ spotifyUri, device }: { spotifyUri?: string; device?: Device }): Promise<any> {
     try {
-      console.log(`Starting playback for spotify_uri: ${spotifyUri} on ${device?.name}`);
+      this.logger.debug(`Starting playback for spotify_uri: ${spotifyUri} on ${device?.name}`);
 
       if (!spotifyUri) {
         if (await this.isTrackPlaying()) {
           return 'Playback is already active, no need to resume.';
         }
-        if (!(await this.getCurrentTrack())) {
+        if (!(await this.getCurrentTrack())?.isPlaying) {
           throw new Error('No track_id provided and no current playback to resume.');
         }
       }
@@ -296,9 +226,9 @@ export class SpotifyProvider {
         await this.sdk.player.startResumePlayback(deviceId);
       }
 
-      console.log('Playback started successfully');
+      this.logger.debug('Playback started successfully');
     } catch (error) {
-      console.log(`Error starting playback: ${error}`);
+      this.logger.debug('Error starting playback', { error });
       throw error;
     }
   }
@@ -306,12 +236,13 @@ export class SpotifyProvider {
   async pausePlayback(device?: Device): Promise<void> {
     try {
       const playback = await this.sdk.player.getPlaybackState();
+
       if (playback?.is_playing) {
         const deviceId = z.string().parse(device?.id);
         await this.sdk.player.pausePlayback(deviceId);
       }
     } catch (error) {
-      console.log(`Error pausing playback: ${error}`);
+      this.logger.debug(`Error pausing playback: ${error}`);
     }
   }
 
@@ -322,22 +253,7 @@ export class SpotifyProvider {
       const deviceId = z.string().optional().parse(device?.id);
       await this.sdk.player.addItemToPlaybackQueue(spotifyUri, deviceId);
     } catch (error) {
-      console.log(`Error adding to queue: ${error}`);
-      throw error;
-    }
-  }
-
-  async getQueue(): Promise<any> {
-    try {
-      const queueInfo = await this.sdk.player.getUsersQueue();
-      const currentTrack = await this.getCurrentTrack();
-
-      return {
-        currently_playing: currentTrack,
-        queue: queueInfo.queue.map((track) => (SpotifyUtils.parseTrack ? SpotifyUtils.parseTrack(track) : track)),
-      };
-    } catch (error) {
-      console.log(`Error getting queue: ${error}`);
+      this.logger.debug(`Error adding to queue: ${error}`);
       throw error;
     }
   }
@@ -345,38 +261,44 @@ export class SpotifyProvider {
   async isTrackPlaying(): Promise<boolean> {
     try {
       const currentTrack = await this.getCurrentTrack();
-      return currentTrack?.is_playing || false;
+      return !!currentTrack?.isPlaying;
     } catch (error) {
-      console.log(`Error checking if track is playing: ${error}`);
+      this.logger.debug(`Error checking if track is playing: ${error}`);
       return false;
     }
   }
 
-  async getCurrentUserPlaylists(limit: MaxInt<50> = 50): Promise<any[]> {
+  async getCurrentUserPlaylists(limit: MaxInt<50> = 50): Promise<{ playlists: Playlist[] }> {
     try {
-      const user = await this.getUserProfile();
-      const playlists = await this.sdk.currentUser.playlists.playlists(limit);
-      if (!playlists.items.length) {
+      const response = await this.sdk.currentUser.playlists.playlists(limit);
+
+      if (!response.items.length) {
         throw new Error('No playlists found.');
       }
-      return playlists.items.map((playlist) =>
-        SpotifyUtils.parsePlaylist ? SpotifyUtils.parsePlaylist(playlist, user.display_name) : playlist,
-      );
+
+      return {
+        playlists: response.items.map((playlist) => PlaylistSchema.parse(playlist)),
+      };
     } catch (error) {
-      console.log(`Error getting playlists: ${error}`);
+      this.logger.debug(`Error getting playlists: ${error}`);
       throw error;
     }
   }
 
-  async getPlaylistTracks(playlistId: string): Promise<any[]> {
+  async getPlaylistTracks(playlistId: string): Promise<{ tracks: Track[] }> {
     try {
       const playlist = await this.sdk.playlists.getPlaylist(playlistId);
+      this.logger.debug('Playlist tracks', { playlist });
+
       if (!playlist) {
         throw new Error('No playlist found.');
       }
-      return SpotifyUtils.parseTracks ? SpotifyUtils.parseTracks(playlist.tracks.items) : playlist.tracks.items;
+
+      return {
+        tracks: TrackSchema.array().parse(playlist.tracks.items),
+      };
     } catch (error) {
-      console.log(`Error getting playlist tracks: ${error}`);
+      this.logger.debug(`Error getting playlist tracks`, { error });
       throw error;
     }
   }
@@ -391,9 +313,9 @@ export class SpotifyProvider {
 
     try {
       const response = await this.sdk.playlists.addItemsToPlaylist(playlistId, tracksUris, position);
-      console.log(`Added tracks ${tracksUris} to playlist ${playlistId}: ${response}`);
+      this.logger.debug(`Added tracks ${tracksUris} to playlist ${playlistId}: ${response}`);
     } catch (error) {
-      console.log(`Error adding tracks to playlist: ${error}`);
+      this.logger.debug(`Error adding tracks to playlist: ${error}`);
       throw error;
     }
   }
@@ -409,9 +331,9 @@ export class SpotifyProvider {
     try {
       const tracks = trackIds.map((uri) => ({ uri }));
       const response = await this.sdk.playlists.removeItemsFromPlaylist(playlistId, { tracks });
-      console.log(`Removed tracks ${trackIds} from playlist ${playlistId}: ${response}`);
+      this.logger.debug(`Removed tracks ${trackIds} from playlist ${playlistId}: ${response}`);
     } catch (error) {
-      console.log(`Error removing tracks from playlist: ${error}`);
+      this.logger.debug(`Error removing tracks from playlist: ${error}`);
       throw error;
     }
   }
@@ -426,14 +348,15 @@ export class SpotifyProvider {
         name,
         description,
       });
-      console.log('Playlist details changed successfully');
+      this.logger.debug('Playlist details changed successfully');
     } catch (error) {
-      console.log(`Error changing playlist details: ${error}`);
+      this.logger.debug(`Error changing playlist details: ${error}`);
       throw error;
     }
   }
 
   async createPlaylist(params: {
+    userId: string;
     name: string;
     public?: boolean;
     collaborative?: boolean;
@@ -442,9 +365,7 @@ export class SpotifyProvider {
     try {
       this.logger.debug('Creating playlist', { params });
 
-      const user = await this.getUserProfile();
-
-      const response = await this.sdk.playlists.createPlaylist(user.id, params);
+      const response = await this.sdk.playlists.createPlaylist(params.userId, params);
 
       this.logger.debug('Playlist created successfully', { response });
 
@@ -460,7 +381,7 @@ export class SpotifyProvider {
       const devices = await this.sdk.player.getAvailableDevices();
       return devices.devices;
     } catch (error) {
-      console.log(`Error getting devices: ${error}`);
+      this.logger.debug(`Error getting devices: ${error}`);
       throw error;
     }
   }
@@ -470,7 +391,7 @@ export class SpotifyProvider {
       const devices = await this.getDevices();
       return devices.find((device) => device.is_active) || null;
     } catch (error) {
-      console.log(`Error getting devices: ${error}`);
+      this.logger.debug(`Error getting devices: ${error}`);
       return null;
     }
   }
@@ -481,7 +402,7 @@ export class SpotifyProvider {
         await this.sdk.player.skipToNext(deviceId);
       }
     } catch (error) {
-      console.log(`Error skipping track: ${error}`);
+      this.logger.debug(`Error skipping track: ${error}`);
       throw error;
     }
   }
@@ -490,7 +411,7 @@ export class SpotifyProvider {
     try {
       await this.sdk.player.skipToPrevious(deviceId);
     } catch (error) {
-      console.log(`Error going to previous track: ${error}`);
+      this.logger.debug(`Error going to previous track: ${error}`);
       throw error;
     }
   }
