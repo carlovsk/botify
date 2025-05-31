@@ -130,6 +130,8 @@ export class SpotifyTools {
 
         SpotifyTools.logger.info('searchTracks tool completed successfully', {
           userId,
+          query,
+          type,
           responseLength: response.length,
           resultsCount: results?.tracks?.items?.length || 0,
         });
@@ -353,29 +355,44 @@ export class SpotifyTools {
 
   static addTracksToPlaylist = (userId: string) =>
     tool(
-      async ({ playlistId, trackIds, position }: { playlistId: string; trackIds: string[]; position?: number }) => {
+      async ({ playlistId, tracksUris, position }: { playlistId: string; tracksUris: string[]; position?: number }) => {
         SpotifyTools.logger.info('Starting addTracksToPlaylist tool execution', {
           userId,
-          parameters: { playlistId, trackIds, position, trackCount: trackIds.length },
+          parameters: { playlistId, tracksUris, position, trackCount: tracksUris.length },
         });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        await spotify.addTracksToPlaylist(playlistId, trackIds, position);
-        const response = `Added ${trackIds.length} tracks to playlist ${playlistId}`;
+        await spotify.addTracksToPlaylist(playlistId, tracksUris, position);
+        const response = `Added ${tracksUris.length} tracks to playlist ${playlistId}`;
 
         SpotifyTools.logger.info('addTracksToPlaylist tool completed successfully', {
           userId,
           response,
           playlistId,
-          tracksAdded: trackIds.length,
+          tracksAdded: tracksUris.length,
         });
         return response;
       },
       {
         name: 'addTracksToPlaylist',
         description: `
-        Add tracks to a playlist. Requires playlistId and trackIds array. Optional position parameter.
+        Add tracks to a playlist. Requires playlistId and tracksUris array. Optional position parameter.
         `,
+        schema: z.object({
+          playlistId: z.string().describe('ID of the playlist to add tracks to'),
+          tracksUris: z
+            .array(z.string())
+            .min(1)
+            .max(100)
+            .describe('Array of Spotify track URIs to add to the playlist'),
+          position: z
+            .number()
+            .int()
+            .min(0)
+            .max(1000)
+            .optional()
+            .describe('Position in the playlist to insert tracks (default: end of playlist)'),
+        }),
       },
     );
 
