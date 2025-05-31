@@ -5,24 +5,22 @@ import { Auth, Message } from '../models';
 import { SpotifyAgentProvider } from '../providers/agents/spotify';
 import { SpotifyProvider } from '../providers/spotify';
 import { TelegramProvider } from '../providers/telegram';
-import { TelegramUserSchema } from '../types/telegram';
+import { MessageService } from '../services/message';
+import { TelegramMessageSchema } from '../types/telegram';
 
 const BodySchema = z.object({
-  message: z.object({
-    message_id: z.number(),
-    text: z.string(),
-    date: z.coerce.date(),
-    chat: TelegramUserSchema,
-  }),
+  message: TelegramMessageSchema,
 });
 
 type BodyType = z.infer<typeof BodySchema>;
 
 export class Handler {
   telegramProvider: TelegramProvider;
+  messageService: MessageService;
 
   constructor() {
     this.telegramProvider = new TelegramProvider();
+    this.messageService = new MessageService();
   }
 
   public webhook = middlewares.http(async (event) => {
@@ -45,7 +43,7 @@ export class Handler {
       };
     }
 
-    if ((await Message.get({ userId, messageId }).go()).data) {
+    if (await this.messageService.findMessageById(userId, messageId)) {
       console.log('Message already been processed');
 
       return {
@@ -54,13 +52,7 @@ export class Handler {
       };
     }
 
-    await Message.create({
-      userId,
-      messageId,
-      text: message.text,
-      role: 'user',
-      type: 'message',
-    }).go();
+    await this.messageService.saveMessage(message);
 
     const authorization = await Auth.query.byUserId({ userId: userId }).go();
 
@@ -77,7 +69,7 @@ export class Handler {
         tokenType: '',
       }).go();
 
-      await telegramProvider.sendMessage(
+      await this.messageService.sendMessage(
         `Hello ${message.chat.first_name},\n\nIt seems you haven't connected your Spotify account yet. Please click the button below to connect your Spotify account so we can proceed with your request.`,
         message.chat.id,
         {
@@ -116,15 +108,8 @@ export class Handler {
       input: message.text,
       history: history.data.map((msg) => ({ role: msg.role, content: msg.text })),
     });
-    const replyMessage = await telegramProvider.sendMessage(response, message.chat.id);
 
-    await Message.create({
-      userId: userId,
-      messageId: replyMessage.result.message_id.toString(),
-      text: replyMessage.result.text,
-      role: 'assistant',
-      type: 'message',
-    }).go();
+    await this.messageService.sendMessage(response, message.chat.id);
 
     return {
       statusCode: 200,
