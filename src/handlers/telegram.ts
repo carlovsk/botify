@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon';
 import { z } from 'zod';
+import { SpotifyAgentProvider } from '../agents/spotify';
 import { Middlewares } from '../middlewares';
 import { Auth, Message } from '../models';
-import { SpotifyAgentProvider } from '../providers/agents/spotify';
 import { SpotifyProvider } from '../providers/spotify';
 import { TelegramProvider } from '../providers/telegram';
 import { MessageService } from '../services/message';
