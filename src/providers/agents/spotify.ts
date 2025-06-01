@@ -31,8 +31,8 @@ export class SpotifyAgentProvider {
     });
   }
 
-  async run({ input, history }: { input: string; history: { role: string; content: string }[] }): Promise<string> {
-    const result = await this.agent.invoke({ input, history });
+  async run({ input }: { input: string; history: { role: string; content: string }[] }): Promise<string> {
+    const result = await this.agent.invoke({ input });
     return result.output as string;
   }
 }
