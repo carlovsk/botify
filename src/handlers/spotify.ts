@@ -1,10 +1,10 @@
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import * as middlewares from '../middlewares';
+import { Middlewares } from '../middlewares';
 import { Auth } from '../models';
 import { SpotifyProvider } from '../providers/spotify';
 
-export const callback = middlewares.base(async (event) => {
+export const callback = Middlewares.base(async (event) => {
   const code = z.string().parse(event.queryStringParameters?.code);
   const state = z.string().parse(event.queryStringParameters?.state);
 

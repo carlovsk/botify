@@ -8,31 +8,33 @@ import { startLogger } from '../utils/logger';
 
 const logger = startLogger('handlers');
 
-export const base = (handler: APIGatewayProxyHandler) =>
-  middy(handler, { timeoutEarlyInMillis: 0 })
-    .use(cors())
-    .use(
-      inputOutputLogger({
-        logger: ({ event, response }) => {
-          if (event) {
-            logger?.debug('request', {
-              event,
-            });
-          } else if (response) {
-            logger?.debug('response', {
-              response,
-            });
-          }
+export class Middlewares {
+  static base = (handler: APIGatewayProxyHandler) =>
+    middy(handler, { timeoutEarlyInMillis: 0 })
+      .use(cors())
+      .use(
+        inputOutputLogger({
+          logger: ({ event, response }) => {
+            if (event) {
+              logger?.debug('request', {
+                event,
+              });
+            } else if (response) {
+              logger?.debug('response', {
+                response,
+              });
+            }
+          },
+        }),
+      )
+      .use({
+        onError: (handler) => {
+          const { error } = handler;
+          logger?.error('Internal server error', {
+            error,
+          });
         },
-      }),
-    )
-    .use({
-      onError: (handler) => {
-        const { error } = handler;
-        logger?.error('Internal server error', {
-          error,
-        });
-      },
-    });
+      });
 
-export const http = (handler: APIGatewayProxyHandler) => base(handler).use(httpJsonBodyParser());
+  static http = (handler: APIGatewayProxyHandler) => Middlewares.base(handler).use(httpJsonBodyParser());
+}

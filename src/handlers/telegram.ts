@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import * as middlewares from '../middlewares';
+import { Middlewares } from '../middlewares';
 import { Auth, Message } from '../models';
 import { SpotifyAgentProvider } from '../providers/agents/spotify';
 import { SpotifyProvider } from '../providers/spotify';
@@ -23,7 +23,7 @@ export class Handler {
     this.messageService = new MessageService();
   }
 
-  public webhook = middlewares.http(async (event) => {
+  public webhook = Middlewares.http(async (event) => {
     const telegramProvider = new TelegramProvider();
 
     const { message } = BodySchema.parse(event.body);
