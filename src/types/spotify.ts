@@ -79,7 +79,7 @@ export const AlbumSchema = z.object({
 });
 
 export const TrackSchema = z.object({
-  album: AlbumSchema.array(),
+  album: AlbumSchema,
   artists: ArtistSchema.array(),
   available_markets: z.string().array(),
   disc_number: z.number(),

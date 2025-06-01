@@ -205,25 +205,12 @@ export class SpotifyProvider {
     try {
       this.logger.debug(`Starting playback for spotify_uri: ${spotifyUri} on ${device?.name}`);
 
-      if (!spotifyUri) {
-        if (await this.isTrackPlaying()) {
-          return 'Playback is already active, no need to resume.';
-        }
-        if (!(await this.getCurrentTrack())?.isPlaying) {
-          throw new Error('No track_id provided and no current playback to resume.');
-        }
-      }
-
       const deviceId = z.string().parse(device?.id);
 
-      if (spotifyUri) {
-        if (spotifyUri.startsWith('spotify:track:')) {
-          await this.sdk.player.startResumePlayback(deviceId, undefined, [spotifyUri]);
-        } else {
-          await this.sdk.player.startResumePlayback(deviceId, spotifyUri);
-        }
+      if (spotifyUri?.startsWith('spotify:track:')) {
+        await this.sdk.player.startResumePlayback(deviceId, undefined, [spotifyUri]);
       } else {
-        await this.sdk.player.startResumePlayback(deviceId);
+        await this.sdk.player.startResumePlayback(deviceId, spotifyUri);
       }
 
       this.logger.debug('Playback started successfully');

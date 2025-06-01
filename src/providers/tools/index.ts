@@ -1,4 +1,4 @@
-import { tool } from '@langchain/core/tools';
+import { DynamicTool, tool } from '@langchain/core/tools';
 import { MaxInt } from '@spotify/web-api-ts-sdk';
 import { z } from 'zod';
 import { startLogger } from '../../utils/logger';
@@ -37,8 +37,10 @@ export class SpotifyTools {
     );
 
   static pauseTrack = (userId: string) =>
-    tool(
-      async () => {
+    new DynamicTool({
+      name: 'pauseTrack',
+      description: Prompts.PauseTrackTool,
+      func: async () => {
         SpotifyTools.logger.info('Starting pauseTrack tool execution', { userId });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
@@ -55,15 +57,13 @@ export class SpotifyTools {
         SpotifyTools.logger.info('pauseTrack tool completed successfully', { userId, response });
         return response;
       },
-      {
-        name: 'pauseTrack',
-        description: Prompts.PauseTrackTool,
-      },
-    );
+    });
 
   static resumeTrack = (userId: string) =>
-    tool(
-      async () => {
+    new DynamicTool({
+      name: 'resumeTrack',
+      description: Prompts.ResumeTrackTool,
+      func: async () => {
         SpotifyTools.logger.info('Starting resumeTrack tool execution', { userId });
 
         const spotify = await SpotifyProvider.buildClientWithAuth(userId);
@@ -78,11 +78,7 @@ export class SpotifyTools {
         SpotifyTools.logger.info('resumeTrack tool completed successfully', { userId, response });
         return response;
       },
-      {
-        name: 'resumeTrack',
-        description: Prompts.ResumeTrackTool,
-      },
-    );
+    });
 
   static previousTrack = (userId: string) =>
     tool(
