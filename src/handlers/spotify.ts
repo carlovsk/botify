@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { z } from 'zod';
 import { Middlewares } from '../middlewares';
 import { Auth } from '../models';
-import { SpotifyProvider } from '../providers/spotify';
+import { SpotifyAuthService } from '../services/auth';
 
 export const callback = Middlewares.base(async (event) => {
   const code = z.string().parse(event.queryStringParameters?.code);
@@ -17,7 +17,7 @@ export const callback = Middlewares.base(async (event) => {
     };
   }
 
-  const token = await SpotifyProvider.exchangeCodeForSdk(code);
+  const token = await SpotifyAuthService.exchangeCodeForToken(code);
   const expiresIn = Math.round(DateTime.now().toSeconds() + token.expires_in);
 
   await Auth.patch({

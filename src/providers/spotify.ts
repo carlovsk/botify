@@ -1,19 +1,7 @@
 import { AccessToken, Device, MaxInt, SpotifyApi } from '@spotify/web-api-ts-sdk';
-import axios from 'axios';
-import { randomUUID } from 'node:crypto';
-import qs from 'node:querystring';
 import { z } from 'zod';
-import { Auth } from '../models';
-import {
-  Playlist,
-  PlaylistSchema,
-  SpotifyAuthorizationSchema,
-  TelegramAuthorization,
-  Track,
-  TrackSchema,
-  User,
-  UserSchema,
-} from '../types/spotify';
+import { SpotifyAuthService } from '../services/auth';
+import { Playlist, PlaylistSchema, Track, TrackSchema, User, UserSchema } from '../types/spotify';
 import { env } from '../utils/env';
 import { startLogger } from '../utils/logger';
 
@@ -48,101 +36,13 @@ export class SpotifyProvider {
   }
 
   static async buildClientWithAuth(userId: string): Promise<SpotifyProvider> {
-    const authorization = await Auth.query.byUserId({ userId }).go();
+    const authorization = await SpotifyAuthService.findTokenByUserId(userId);
 
-    if (authorization.data.length === 0) {
+    if (!authorization) {
       throw new Error('No Spotify authorization found. Please connect your Spotify account first.');
     }
 
-    const auth = authorization.data[0];
-    return new SpotifyProvider({
-      access_token: auth.accessToken,
-      refresh_token: auth.refreshToken,
-      expires_in: auth.expiresIn,
-      token_type: auth.tokenType,
-    });
-  }
-
-  static createAuthorizeURL(): { url: string; authId: string } {
-    const { SPOTIFY_CLIENT_ID, API_GATEWAY_URL } = env();
-
-    const authId = randomUUID();
-
-    const params = new URLSearchParams({
-      client_id: SPOTIFY_CLIENT_ID,
-      response_type: 'code',
-      redirect_uri: `${API_GATEWAY_URL}/spotify/callback`,
-      show_dialog: 'false',
-      state: authId,
-    });
-
-    if (SpotifyProvider.scopes.length) params.append('scope', SpotifyProvider.scopes.join(' '));
-
-    return {
-      url: `https://accounts.spotify.com/authorize?${params.toString()}`,
-      authId,
-    };
-  }
-
-  static async exchangeCodeForSdk(code: string): Promise<TelegramAuthorization> {
-    const { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, SPOTIFY_CLIENT_SECRET } = env();
-
-    const payload = qs.stringify({
-      grant_type: 'authorization_code',
-      code, // the ?code= you got on /spotify/callback
-      redirect_uri: SPOTIFY_REDIRECT_URI,
-    });
-
-    const basic = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
-
-    // Spotify returns the AccessToken JSON the SDK already understands
-    const { data } = await axios.post('https://accounts.spotify.com/api/token', payload, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${basic}`,
-      },
-    });
-
-    return SpotifyAuthorizationSchema.parse(data);
-  }
-
-  static async refreshAccessToken(userId: string): Promise<void> {
-    const { SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET } = env();
-
-    const authorization = await Auth.query.byUserId({ userId }).go();
-
-    if (authorization.data.length === 0) {
-      throw new Error('No Spotify authorization found. Please connect your Spotify account first.');
-    }
-
-    const auth = authorization.data[0];
-
-    const payload = new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: auth.refreshToken,
-      client_id: SPOTIFY_CLIENT_ID,
-    });
-
-    const basic = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
-
-    const { data } = await axios.post('https://accounts.spotify.com/api/token', payload, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${basic}`,
-      },
-    });
-
-    await Auth.patch({
-      userId,
-      authId: auth.authId,
-    })
-      .set({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token || auth.refreshToken, // Use existing refresh token if not provided
-        expiresIn: data.expires_in,
-        tokenType: data.token_type,
-      })
-      .go();
+    return new SpotifyProvider(authorization);
   }
 
   async getUserProfile(): Promise<{ user: User }> {

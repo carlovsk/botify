@@ -8,7 +8,7 @@ export const SpotifyAuthorizationSchema = z.object({
   token_type: z.string(),
 });
 
-export type TelegramAuthorization = z.infer<typeof SpotifyAuthorizationSchema>;
+export type SpotifyAuthorization = z.infer<typeof SpotifyAuthorizationSchema>;
 
 export const UserSchema = z.object({
   display_name: z.string(),
