@@ -1,8 +1,8 @@
+import { Prompts } from '@/agents/prompts';
+import { SpotifyProvider } from '@/providers/spotify';
+import { startLogger } from '@/utils/logger';
 import { DynamicStructuredTool } from 'langchain/tools';
 import { z } from 'zod';
-import { SpotifyProvider } from '../../../providers/spotify';
-import { startLogger } from '../../../utils/logger';
-import { Prompts } from '../../prompts';
 
 export class RemoveTracksFromPlaylistTool extends DynamicStructuredTool {
   private static logger = startLogger('RemoveTracksFromPlaylistTool');

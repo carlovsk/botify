@@ -1,13 +1,13 @@
+import { SpotifyAgentProvider } from '@/agents/spotify';
+import { Middlewares } from '@/middlewares';
+import { TelegramProvider } from '@/providers/telegram';
+import { AuthRepository } from '@/repositories/auth.repository';
+import { MessageRepository } from '@/repositories/message.repository';
+import { SpotifyAuthService } from '@/services/auth';
+import { MessageService } from '@/services/message';
+import { TelegramMessageSchema } from '@/types/telegram';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { SpotifyAgentProvider } from '../agents/spotify';
-import { Middlewares } from '../middlewares';
-import { TelegramProvider } from '../providers/telegram';
-import { AuthRepository } from '../repositories/auth.repository';
-import { MessageRepository } from '../repositories/message.repository';
-import { SpotifyAuthService } from '../services/auth';
-import { MessageService } from '../services/message';
-import { TelegramMessageSchema } from '../types/telegram';
 
 const BodySchema = z.object({
   message: TelegramMessageSchema,

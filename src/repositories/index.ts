@@ -1,2 +1,3 @@
-export * from './auth.repository';
-export * from './message.repository';
+export * from '@/repositories/auth.repository';
+export * from '@/repositories/message.repository';
+

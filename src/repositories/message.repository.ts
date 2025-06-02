@@ -1,5 +1,5 @@
+import { Message } from '@/models';
 import { z } from 'zod';
-import { Message } from '../models';
 
 // Zod schemas for validation
 export const CreateMessageDataSchema = z.object({

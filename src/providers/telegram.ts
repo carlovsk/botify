@@ -1,7 +1,7 @@
+import { startLogger } from '@/utils/logger';
 import { Logger } from '@aws-lambda-powertools/logger';
 import axios, { AxiosInstance } from 'axios';
 import { z } from 'zod';
-import { startLogger } from '../utils/logger';
 export class TelegramProvider {
   private client: AxiosInstance;
   private logger: Logger;

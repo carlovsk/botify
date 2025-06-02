@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 module.exports = () => {
   /**
@@ -18,6 +19,16 @@ module.exports = () => {
     sourcemap: shouldInlineSourcemap,
     keepNames: shouldKeepNames,
     plugins: [
+      {
+        name: 'alias',
+        setup(build) {
+          build.onResolve({ filter: /^@\// }, (args) => {
+            return {
+              path: path.resolve(args.resolveDir, 'src', args.path.slice(2)),
+            };
+          });
+        },
+      },
       {
         name: 'excludeVendorFromSourceMap',
         setup(build) {

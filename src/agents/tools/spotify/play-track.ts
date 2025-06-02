@@ -1,7 +1,7 @@
+import { Prompts } from '@/agents/prompts';
+import { SpotifyProvider } from '@/providers/spotify';
 import { DynamicStructuredTool } from 'langchain/tools';
 import { z } from 'zod';
-import { SpotifyProvider } from '../../../providers/spotify';
-import { Prompts } from '../../prompts';
 
 export class PlayTrackTool extends DynamicStructuredTool {
   constructor(userId: string) {

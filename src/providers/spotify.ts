@@ -1,9 +1,9 @@
+import { SpotifyAuthService } from '@/services/auth';
+import { Playlist, PlaylistSchema, Track, TrackSchema, User, UserSchema } from '@/types/spotify';
+import { env } from '@/utils/env';
+import { startLogger } from '@/utils/logger';
 import { AccessToken, Device, MaxInt, SpotifyApi } from '@spotify/web-api-ts-sdk';
 import { z } from 'zod';
-import { SpotifyAuthService } from '../services/auth';
-import { Playlist, PlaylistSchema, Track, TrackSchema, User, UserSchema } from '../types/spotify';
-import { env } from '../utils/env';
-import { startLogger } from '../utils/logger';
 
 export class SpotifyProvider {
   sdk: SpotifyApi;

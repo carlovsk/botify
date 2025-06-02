@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { startLogger } from '@/utils/logger';
 import middy from '@middy/core';
 import cors from '@middy/http-cors';
 import httpJsonBodyParser from '@middy/http-json-body-parser';
 import inputOutputLogger from '@middy/input-output-logger';
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { startLogger } from '../utils/logger';
 
 const logger = startLogger('handlers');
 

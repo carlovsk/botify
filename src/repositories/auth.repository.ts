@@ -1,5 +1,5 @@
+import { Auth } from '@/models';
 import { z } from 'zod';
-import { Auth } from '../models';
 
 // Zod schemas for validation
 export const CreateAuthDataSchema = z.object({

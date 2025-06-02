@@ -1,6 +1,6 @@
-import { TelegramProvider } from '../providers/telegram';
-import { MessageRepository } from '../repositories/message.repository';
-import { TelegramMessage } from '../types/telegram';
+import { TelegramProvider } from '@/providers/telegram';
+import { MessageRepository } from '@/repositories/message.repository';
+import { TelegramMessage } from '@/types/telegram';
 
 export class MessageService {
   private telegramProvider: TelegramProvider;

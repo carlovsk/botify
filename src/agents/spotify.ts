@@ -1,8 +1,8 @@
+import { BedrockProvider } from '@/agents/llm';
+import { Prompts } from '@/agents/prompts';
+import { SpotifyTools } from '@/agents/tools';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
-import { BedrockProvider } from './llm';
-import { Prompts } from './prompts';
-import { SpotifyTools } from './tools';
 
 export class SpotifyAgentProvider {
   private agent: AgentExecutor;

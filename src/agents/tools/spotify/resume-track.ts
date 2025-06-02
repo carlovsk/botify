@@ -1,6 +1,6 @@
+import { Prompts } from '@/agents/prompts';
+import { SpotifyProvider } from '@/providers/spotify';
 import { DynamicTool } from 'langchain/tools';
-import { SpotifyProvider } from '../../../providers/spotify';
-import { Prompts } from '../../prompts';
 
 export class ResumeTrackTool extends DynamicTool {
   constructor(userId: string) {

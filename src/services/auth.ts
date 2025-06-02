@@ -1,11 +1,11 @@
+import { SpotifyProvider } from '@/providers/spotify';
+import { AuthRepository } from '@/repositories/auth.repository';
+import { SpotifyAuthorization, SpotifyAuthorizationSchema } from '@/types/spotify';
+import { env } from '@/utils/env';
 import { AccessToken } from '@spotify/web-api-ts-sdk';
 import axios from 'axios';
 import { randomUUID } from 'node:crypto';
 import qs from 'node:querystring';
-import { SpotifyProvider } from '../providers/spotify';
-import { AuthRepository } from '../repositories/auth.repository';
-import { SpotifyAuthorization, SpotifyAuthorizationSchema } from '../types/spotify';
-import { env } from '../utils/env';
 
 export class SpotifyAuthService {
   private static authRepository = new AuthRepository();

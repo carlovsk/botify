@@ -1,8 +1,8 @@
+import { Middlewares } from '@/middlewares';
+import { AuthRepository } from '@/repositories/auth.repository';
+import { SpotifyAuthService } from '@/services/auth';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { Middlewares } from '../middlewares';
-import { AuthRepository } from '../repositories/auth.repository';
-import { SpotifyAuthService } from '../services/auth';
 
 export const callback = Middlewares.base(async (event) => {
   const authRepository = new AuthRepository();
