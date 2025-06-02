@@ -11,14 +11,14 @@ import { DynamicStructuredTool, DynamicTool } from 'langchain/tools';
 export class SpotifyTools {
   static listTools(userId: string): (DynamicTool | DynamicStructuredTool)[] {
     return [
-      new AddTracksToPlaylistTool(userId),
-      new CreatePlaylistTool(userId),
-      new GetPlaylistTracksTool(userId),
-      new PauseTrackTool(userId),
-      new PlayTrackTool(userId),
-      new RemoveTracksFromPlaylistTool(userId),
-      new ResumeTrackTool(userId),
-      new SearchTool(userId),
+      AddTracksToPlaylistTool.create(userId),
+      CreatePlaylistTool.create(userId),
+      GetPlaylistTracksTool.create(userId),
+      PauseTrackTool.create(userId),
+      PlayTrackTool.create(userId),
+      RemoveTracksFromPlaylistTool.create(userId),
+      ResumeTrackTool.create(userId),
+      SearchTool.create(userId),
     ];
   }
 }

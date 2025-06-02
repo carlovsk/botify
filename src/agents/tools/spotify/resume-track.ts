@@ -1,24 +1,24 @@
 import { Prompts } from '@/agents/prompts';
-import { SpotifyProvider } from '@/providers/spotify';
-import { DynamicTool } from 'langchain/tools';
+import { BaseSpotifySimpleTool } from '@/agents/tools/base/spotify-tool';
 
-export class ResumeTrackTool extends DynamicTool {
+export class ResumeTrackTool extends BaseSpotifySimpleTool {
   constructor(userId: string) {
-    super({
-      name: 'resumeTrack',
-      description: Prompts.ResumeTrackTool,
-      func: async () => {
-        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        const device = await spotify.findActiveDevice();
+    super('resumeTrack', Prompts.ResumeTrackTool, userId);
+  }
 
-        if (!device || device.id === null) {
-          return 'No active device found';
-        }
+  protected async execute(): Promise<string> {
+    const spotify = await this.getSpotifyProvider();
+    const device = await this.validateActiveDevice(spotify);
 
-        await spotify.resumePlayback({ device });
+    await spotify.resumePlayback({ device });
 
-        return 'Resumed the current track';
-      },
+    return this.formatSuccessResponse(`Resumed playback on ${device.name || 'Unknown Device'}`, {
+      deviceId: device.id,
+      deviceName: device.name || 'Unknown Device',
     });
+  }
+
+  static create(userId: string) {
+    return new ResumeTrackTool(userId);
   }
 }

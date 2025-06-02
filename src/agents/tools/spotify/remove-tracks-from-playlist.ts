@@ -1,42 +1,33 @@
 import { Prompts } from '@/agents/prompts';
-import { SpotifyProvider } from '@/providers/spotify';
-import { startLogger } from '@/utils/logger';
-import { DynamicStructuredTool } from 'langchain/tools';
-import { z } from 'zod';
+import {
+  BaseSpotifyStructuredTool,
+  RemoveTracksFromPlaylistParams,
+  ToolSchemas,
+} from '@/agents/tools/base/spotify-tool';
 
-export class RemoveTracksFromPlaylistTool extends DynamicStructuredTool {
-  private static logger = startLogger('RemoveTracksFromPlaylistTool');
-
+export class RemoveTracksFromPlaylistTool extends BaseSpotifyStructuredTool<RemoveTracksFromPlaylistParams> {
   constructor(userId: string) {
-    super({
-      name: 'removeTracksFromPlaylist',
-      description: Prompts.RemoveTracksFromPlaylistTool,
-      schema: z.object({
-        playlistId: z.string().describe('ID of the playlist to remove tracks from'),
-        trackIds: z
-          .array(z.string())
-          .min(1)
-          .max(100)
-          .describe('Array of Spotify track IDs to remove from the playlist'),
-      }),
-      func: async ({ playlistId, trackIds }: { playlistId: string; trackIds: string[] }) => {
-        RemoveTracksFromPlaylistTool.logger.info('Starting removeTracksFromPlaylist tool execution', {
-          userId,
-          parameters: { playlistId, trackIds, trackCount: trackIds.length },
-        });
+    super(
+      'removeTracksFromPlaylist',
+      Prompts.RemoveTracksFromPlaylistTool,
+      ToolSchemas.removeTracksFromPlaylist,
+      userId,
+    );
+  }
 
-        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
-        await spotify.removeTracksFromPlaylist(playlistId, trackIds);
-        const response = `Removed ${trackIds.length} tracks from playlist ${playlistId}`;
+  protected async execute(params: RemoveTracksFromPlaylistParams): Promise<string> {
+    const { playlistId, trackIds } = params;
 
-        RemoveTracksFromPlaylistTool.logger.info('removeTracksFromPlaylist tool completed successfully', {
-          userId,
-          response,
-          playlistId,
-          tracksRemoved: trackIds.length,
-        });
-        return response;
-      },
+    const spotify = await this.getSpotifyProvider();
+    await spotify.removeTracksFromPlaylist(playlistId, trackIds);
+
+    return this.formatSuccessResponse(`Removed ${trackIds.length} tracks from playlist ${playlistId}`, {
+      playlistId,
+      tracksRemoved: trackIds.length,
     });
+  }
+
+  static create(userId: string) {
+    return new RemoveTracksFromPlaylistTool(userId);
   }
 }

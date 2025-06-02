@@ -176,7 +176,7 @@ export class SpotifyProvider {
       return response;
     } catch (error) {
       this.logger.error('Error creating playlist', { error });
-      return 'Could not create playlist. Please try again later.';
+      throw error;
     }
   }
 

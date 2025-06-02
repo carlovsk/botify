@@ -1,40 +1,27 @@
 import { Prompts } from '@/agents/prompts';
-import { SpotifyProvider } from '@/providers/spotify';
-import { startLogger } from '@/utils/logger';
-import { DynamicStructuredTool } from 'langchain/tools';
-import { z } from 'zod';
+import { BaseSpotifyStructuredTool, GetPlaylistTracksParams, ToolSchemas } from '@/agents/tools/base/spotify-tool';
 
-export class GetPlaylistTracksTool extends DynamicStructuredTool {
-  private static logger = startLogger('GetPlaylistTracksTool');
-
+export class GetPlaylistTracksTool extends BaseSpotifyStructuredTool<GetPlaylistTracksParams> {
   constructor(userId: string) {
-    super({
-      name: 'getPlaylistTracks',
-      description: Prompts.GetPlaylistTracksTool,
-      schema: z.object({
-        playlistId: z.string().describe('ID of the playlist to retrieve tracks from'),
-      }),
-      func: async ({ playlistId }: { playlistId: string }) => {
-        GetPlaylistTracksTool.logger.info('Starting getPlaylistTracks tool execution', {
-          userId,
-          parameters: { playlistId },
-        });
+    super('getPlaylistTracks', Prompts.GetPlaylistTracksTool, ToolSchemas.getPlaylistTracks, userId);
+  }
 
-        const spotify = await SpotifyProvider.buildClientWithAuth(userId);
+  protected async execute(params: GetPlaylistTracksParams): Promise<string> {
+    const { playlistId } = params;
 
-        const { tracks } = await spotify.getPlaylistTracks(playlistId);
+    const spotify = await this.getSpotifyProvider();
+    const { tracks } = await spotify.getPlaylistTracks(playlistId);
 
-        const response = JSON.stringify(tracks);
+    const response = JSON.stringify(tracks);
 
-        GetPlaylistTracksTool.logger.info('getPlaylistTracks tool completed successfully', {
-          userId,
-          responseLength: response.length,
-          tracksCount: tracks?.length || 0,
-          playlistId,
-        });
-
-        return response;
-      },
+    return this.formatSuccessResponse(response, {
+      playlistId,
+      tracksCount: tracks?.length || 0,
+      responseLength: response.length,
     });
+  }
+
+  static create(userId: string) {
+    return new GetPlaylistTracksTool(userId);
   }
 }
