@@ -4,7 +4,11 @@
   "type": "commonjs",
   "scripts": {
     "start": "serverless dev",
-    "deploy": "serverless deploy"
+    "deploy": "serverless deploy",
+    "build": "tsc --noEmit",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "type-check": "tsc --noEmit"
   },
   "eslintConfig": {
     "extends": "./.eslintrc.ts"
