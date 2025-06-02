@@ -1,16 +1,18 @@
 import { DateTime } from 'luxon';
 import { z } from 'zod';
 import { Middlewares } from '../middlewares';
-import { Auth } from '../models';
+import { AuthRepository } from '../repositories/auth.repository';
 import { SpotifyAuthService } from '../services/auth';
 
 export const callback = Middlewares.base(async (event) => {
+  const authRepository = new AuthRepository();
+
   const code = z.string().parse(event.queryStringParameters?.code);
   const state = z.string().parse(event.queryStringParameters?.state);
 
-  const auth = await Auth.query.byAuthId({ authId: state }).go();
+  const auth = await authRepository.findByAuthId(state);
 
-  if (auth.data.length === 0) {
+  if (auth.length === 0) {
     return {
       statusCode: 400,
       body: 'Invalid authorization state.',
@@ -20,18 +22,13 @@ export const callback = Middlewares.base(async (event) => {
   const token = await SpotifyAuthService.exchangeCodeForToken(code);
   const expiresIn = Math.round(DateTime.now().toSeconds() + token.expires_in);
 
-  await Auth.patch({
-    userId: auth.data[0].userId,
-    authId: auth.data[0].authId,
-  })
-    .set({
-      accessToken: token.access_token,
-      refreshToken: token.refresh_token,
-      expiresIn,
-      scope: token.scope,
-      tokenType: token.token_type,
-    })
-    .go();
+  await authRepository.update(auth[0].userId, auth[0].authId, {
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+    expiresIn,
+    scope: token.scope,
+    tokenType: token.token_type,
+  });
 
   return {
     statusCode: 200,

@@ -2,9 +2,10 @@ import { DateTime } from 'luxon';
 import { z } from 'zod';
 import { SpotifyAgentProvider } from '../agents/spotify';
 import { Middlewares } from '../middlewares';
-import { Auth, Message } from '../models';
-import { SpotifyProvider } from '../providers/spotify';
 import { TelegramProvider } from '../providers/telegram';
+import { AuthRepository } from '../repositories/auth.repository';
+import { MessageRepository } from '../repositories/message.repository';
+import { SpotifyAuthService } from '../services/auth';
 import { MessageService } from '../services/message';
 import { TelegramMessageSchema } from '../types/telegram';
 
@@ -17,10 +18,14 @@ type BodyType = z.infer<typeof BodySchema>;
 export class Handler {
   telegramProvider: TelegramProvider;
   messageService: MessageService;
+  authRepository: AuthRepository;
+  messageRepository: MessageRepository;
 
   constructor() {
     this.telegramProvider = new TelegramProvider();
     this.messageService = new MessageService();
+    this.authRepository = new AuthRepository();
+    this.messageRepository = new MessageRepository();
   }
 
   public webhook = Middlewares.http(async (event) => {
@@ -54,12 +59,12 @@ export class Handler {
 
     await this.messageService.saveMessage(message);
 
-    const authorization = await Auth.query.byUserId({ userId: userId }).go();
+    const authorization = await this.authRepository.findByUserId(userId);
 
-    if (authorization.data.length === 0) {
-      const { url, authId } = SpotifyProvider.createAuthorizeURL();
+    if (authorization.length === 0) {
+      const { url, authId } = SpotifyAuthService.createAuthorizeURL();
 
-      await Auth.create({
+      await this.authRepository.create({
         authId,
         userId: userId,
         accessToken: '',
@@ -67,7 +72,7 @@ export class Handler {
         expiresIn: 0,
         scope: '',
         tokenType: '',
-      }).go();
+      });
 
       await this.messageService.sendMessage(
         `Hello ${message.chat.first_name},\n\nIt seems you haven't connected your Spotify account yet. Please click the button below to connect your Spotify account so we can proceed with your request.`,
@@ -90,23 +95,19 @@ export class Handler {
       };
     }
 
-    const expiresIn = DateTime.fromSeconds(authorization.data[0].expiresIn);
+    const expiresIn = DateTime.fromSeconds(authorization[0].expiresIn);
 
     if (expiresIn < DateTime.now()) {
-      await SpotifyProvider.refreshAccessToken(userId);
+      await SpotifyAuthService.refreshAccessToken(userId);
     }
 
-    const history = await Message.query
-      .byUserId({
-        userId,
-      })
-      .go();
+    const history = await this.messageRepository.findByUserId(userId);
 
     const agent = new SpotifyAgentProvider(userId);
 
     const response = await agent.run({
       input: message.text,
-      history: history.data.map((msg) => ({ role: msg.role, content: msg.text })),
+      history: history.map((msg: any) => ({ role: msg.role, content: msg.text })),
     });
 
     await this.messageService.sendMessage(response, message.chat.id);
