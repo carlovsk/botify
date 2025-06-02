@@ -1,5 +1,5 @@
 import { SpotifyAuthService } from '@/services/auth';
-import { Playlist, PlaylistSchema, Track, TrackSchema, User, UserSchema } from '@/types/spotify';
+import { Track, TrackSchema, User, UserSchema } from '@/types/spotify';
 import { env } from '@/utils/env';
 import { startLogger } from '@/utils/logger';
 import { AccessToken, Device, MaxInt, SpotifyApi } from '@spotify/web-api-ts-sdk';
@@ -74,33 +74,6 @@ export class SpotifyProvider {
     }
   }
 
-  async getCurrentTrack(): Promise<{ track: Track; isPlaying: boolean } | null> {
-    try {
-      const response = await this.sdk.player.getCurrentlyPlayingTrack();
-      this.logger.debug('Current track response', { response });
-
-      if (!response) {
-        this.logger.debug('No playback session found');
-        return null;
-      }
-
-      if (response.currently_playing_type !== 'track') {
-        this.logger.debug('Current playback is not a track');
-        return null;
-      }
-
-      const track = TrackSchema.parse(response.item);
-
-      return {
-        track,
-        isPlaying: response.is_playing,
-      };
-    } catch (error) {
-      this.logger.debug('Error getting current track info', { error });
-      throw error;
-    }
-  }
-
   async resumePlayback({ spotifyUri, device }: { spotifyUri?: string; device?: Device }): Promise<any> {
     try {
       this.logger.debug(`Starting playback for spotify_uri: ${spotifyUri} on ${device?.name}`);
@@ -130,45 +103,6 @@ export class SpotifyProvider {
       }
     } catch (error) {
       this.logger.debug(`Error pausing playback: ${error}`);
-    }
-  }
-
-  async addToQueue(spotifyUri: string, device?: Device): Promise<void> {
-    try {
-      this.logger.debug('Adding track to queue', { spotifyUri, device });
-
-      const deviceId = z.string().optional().parse(device?.id);
-      await this.sdk.player.addItemToPlaybackQueue(spotifyUri, deviceId);
-    } catch (error) {
-      this.logger.debug(`Error adding to queue: ${error}`);
-      throw error;
-    }
-  }
-
-  async isTrackPlaying(): Promise<boolean> {
-    try {
-      const currentTrack = await this.getCurrentTrack();
-      return !!currentTrack?.isPlaying;
-    } catch (error) {
-      this.logger.debug(`Error checking if track is playing: ${error}`);
-      return false;
-    }
-  }
-
-  async getCurrentUserPlaylists(limit: MaxInt<50> = 50): Promise<{ playlists: Playlist[] }> {
-    try {
-      const response = await this.sdk.currentUser.playlists.playlists(limit);
-
-      if (!response.items.length) {
-        throw new Error('No playlists found.');
-      }
-
-      return {
-        playlists: response.items.map((playlist) => PlaylistSchema.parse(playlist)),
-      };
-    } catch (error) {
-      this.logger.debug(`Error getting playlists: ${error}`);
-      throw error;
     }
   }
 
@@ -225,23 +159,6 @@ export class SpotifyProvider {
     }
   }
 
-  async changePlaylistDetails(playlistId: string, name?: string, description?: string): Promise<void> {
-    if (!playlistId) {
-      throw new Error('No playlist ID provided.');
-    }
-
-    try {
-      await this.sdk.playlists.changePlaylistDetails(playlistId, {
-        name,
-        description,
-      });
-      this.logger.debug('Playlist details changed successfully');
-    } catch (error) {
-      this.logger.debug(`Error changing playlist details: ${error}`);
-      throw error;
-    }
-  }
-
   async createPlaylist(params: {
     userId: string;
     name: string;
@@ -263,43 +180,13 @@ export class SpotifyProvider {
     }
   }
 
-  async getDevices(): Promise<Device[]> {
-    try {
-      const devices = await this.sdk.player.getAvailableDevices();
-      return devices.devices;
-    } catch (error) {
-      this.logger.debug(`Error getting devices: ${error}`);
-      throw error;
-    }
-  }
-
   async findActiveDevice(): Promise<Device | null> {
     try {
-      const devices = await this.getDevices();
-      return devices.find((device) => device.is_active) || null;
+      const devices = await this.sdk.player.getAvailableDevices();
+      return devices.devices.find((device) => device.is_active) || null;
     } catch (error) {
       this.logger.debug(`Error getting devices: ${error}`);
       return null;
-    }
-  }
-
-  async skipTrack(n: number = 1, deviceId: string): Promise<void> {
-    try {
-      for (let i = 0; i < n; i++) {
-        await this.sdk.player.skipToNext(deviceId);
-      }
-    } catch (error) {
-      this.logger.debug(`Error skipping track: ${error}`);
-      throw error;
-    }
-  }
-
-  async previousTrack(deviceId: string): Promise<void> {
-    try {
-      await this.sdk.player.skipToPrevious(deviceId);
-    } catch (error) {
-      this.logger.debug(`Error going to previous track: ${error}`);
-      throw error;
     }
   }
 }
