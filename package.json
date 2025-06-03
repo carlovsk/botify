@@ -4,7 +4,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "serverless dev",
-    "deploy": "serverless deploy"
+    "deploy": "serverless deploy",
+    "test": "vitest run"
   },
   "eslintConfig": {
     "extends": "./.eslintrc.ts"
@@ -50,6 +51,8 @@
     "serverless-offline": "^14.4.0",
     "type-fest": "^4.34.1",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.28.0"
+    "typescript-eslint": "^8.28.0",
+    "ts-node": "^10.9.1",
+    "vitest": "^1.5.0"
   }
 }
