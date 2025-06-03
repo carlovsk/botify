@@ -19,7 +19,7 @@ export const Prompts = {
 
     <output>
         Your output will be a Telegram message.
-        Always respond in a concise manner. Always response in the user input language.
+        Always respond in a concise manner. Always respond in the user input language.
     </output>
     `,
 
