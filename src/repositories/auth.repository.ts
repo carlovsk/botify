@@ -5,21 +5,21 @@ import { z } from 'zod';
 export const CreateAuthDataSchema = z.object({
   authId: z.string().min(1, 'Auth ID is required'),
   userId: z.string().min(1, 'User ID is required'),
-  accessToken: z.string().min(1, 'Access token is required'),
-  refreshToken: z.string().min(1, 'Refresh token is required'),
-  expiresIn: z.number().positive('Expires in must be positive'),
-  scope: z.string().min(1, 'Scope is required'),
-  tokenType: z.string().min(1, 'Token type is required'),
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  expiresIn: z.number(),
+  scope: z.string(),
+  tokenType: z.string(),
 });
 
 export const AuthDataSchema = z.object({
   authId: z.string().min(1, 'Auth ID is required'),
   userId: z.string().min(1, 'User ID is required'),
-  accessToken: z.string().min(1, 'Access token is required'),
-  refreshToken: z.string().min(1, 'Refresh token is required'),
-  expiresIn: z.number().positive('Expires in must be positive'),
-  scope: z.string().min(1, 'Scope is required'),
-  tokenType: z.string().min(1, 'Token type is required'),
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  expiresIn: z.number(),
+  scope: z.string(),
+  tokenType: z.string(),
 });
 
 export const UpdateAuthDataSchema = z.object({
@@ -72,9 +72,10 @@ export class AuthRepository {
     // Validate inputs
     z.string().min(1, 'User ID is required').parse(userId);
     z.string().min(1, 'Auth ID is required').parse(authId);
-    const validatedUpdates = UpdateAuthDataSchema.parse(updates);
+    UpdateAuthDataSchema.parse(updates);
 
-    const result = await this.entity.patch({ userId, authId }).set(validatedUpdates).go();
+    await this.entity.patch({ userId, authId }).set(updates).go();
+    const result = await this.entity.get({ userId, authId }).go();
 
     // Validate and return result
     return AuthDataSchema.parse(result.data);
