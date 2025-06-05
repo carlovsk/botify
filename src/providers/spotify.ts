@@ -93,13 +93,12 @@ export class SpotifyProvider {
     }
   }
 
-  async pausePlayback(device?: Device): Promise<void> {
+  async pausePlayback(deviceId?: string): Promise<void> {
     try {
       const playback = await this.sdk.player.getPlaybackState();
 
       if (playback?.is_playing) {
-        const deviceId = z.string().parse(device?.id);
-        await this.sdk.player.pausePlayback(deviceId);
+        await this.sdk.player.pausePlayback(z.string().parse(deviceId));
       }
     } catch (error) {
       this.logger.debug(`Error pausing playback: ${error}`);

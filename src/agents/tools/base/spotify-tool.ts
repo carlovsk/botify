@@ -1,4 +1,5 @@
 import { SpotifyProvider } from '@/providers/spotify';
+import { MessageService } from '@/services/message';
 import { ErrorHandler } from '@/utils/error-handler';
 import { startLogger } from '@/utils/logger';
 import { DynamicStructuredTool, DynamicTool } from '@langchain/core/tools';
@@ -79,9 +80,18 @@ export type RemoveTracksFromPlaylistParams = z.infer<typeof ToolSchemas.removeTr
 // Base class for tools with structured parameters
 export abstract class BaseSpotifyStructuredTool<T> extends DynamicStructuredTool {
   protected userId: string;
+  protected messageService?: MessageService;
+  protected chatId?: string | number;
   private logger = startLogger('BaseSpotifyStructuredTool');
 
-  constructor(name: string, description: string, schema: z.ZodType<T>, userId: string) {
+  constructor(
+    name: string,
+    description: string,
+    schema: z.ZodType<T>,
+    userId: string,
+    messageService?: MessageService,
+    chatId?: string | number,
+  ) {
     super({
       name,
       description,
@@ -91,9 +101,15 @@ export abstract class BaseSpotifyStructuredTool<T> extends DynamicStructuredTool
       },
     });
     this.userId = userId;
+    this.messageService = messageService;
+    this.chatId = chatId;
   }
 
   protected abstract execute(params: T): Promise<string>;
+
+  // Abstract methods for status messages - to be implemented by each tool
+  protected abstract getStartMessage(params?: T): string;
+  protected abstract getSuccessMessage(params?: T, result?: any): string;
 
   protected async getSpotifyProvider(): Promise<SpotifyProvider> {
     return SpotifyProvider.buildClientWithAuth(this.userId);
@@ -122,17 +138,69 @@ export abstract class BaseSpotifyStructuredTool<T> extends DynamicStructuredTool
       return result;
     } catch (error) {
       this.logger.error(`Error in ${this.name}:`, { error: error instanceof Error ? error.message : String(error) });
+
+      // Update status message with error if available
+      if (this.messageService && this.chatId) {
+        try {
+          await this.messageService.finalizeStatusMessage(
+            this.userId,
+            this.chatId,
+            '❌ An error occurred while processing your request. Please try again.',
+          );
+        } catch (statusError) {
+          this.logger.error('Failed to update status message with error:', {
+            error: statusError instanceof Error ? statusError.message : String(statusError),
+          });
+        }
+      }
+
       throw ErrorHandler.handleError(error, { userId: this.userId, operation: this.name });
     }
+  }
+
+  protected async executeWithStatusUpdates(params: T, operation: () => Promise<string>): Promise<string> {
+    if (!this.messageService || !this.chatId) {
+      // Fallback to normal execution if status updates are not available
+      return operation();
+    }
+
+    // Create initial status message
+    const startMessage = this.getStartMessage(params);
+    await this.messageService.createStatusMessage(this.userId, this.chatId, startMessage);
+
+    // Execute the operation
+    const result = await operation();
+
+    // Parse result to extract data for success message
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(result);
+    } catch {
+      parsedResult = { message: result };
+    }
+
+    // Finalize with success message
+    const successMessage = this.getSuccessMessage(params, parsedResult);
+    await this.messageService.finalizeStatusMessage(this.userId, this.chatId, successMessage);
+
+    return result;
   }
 }
 
 // Base class for simple tools without parameters
 export abstract class BaseSpotifySimpleTool extends DynamicTool {
   protected userId: string;
+  protected messageService?: MessageService;
+  protected chatId?: string | number;
   private logger = startLogger('BaseSpotifySimpleTool');
 
-  constructor(name: string, description: string, userId: string) {
+  constructor(
+    name: string,
+    description: string,
+    userId: string,
+    messageService?: MessageService,
+    chatId?: string | number,
+  ) {
     super({
       name,
       description,
@@ -141,9 +209,15 @@ export abstract class BaseSpotifySimpleTool extends DynamicTool {
       },
     });
     this.userId = userId;
+    this.messageService = messageService;
+    this.chatId = chatId;
   }
 
   protected abstract execute(): Promise<string>;
+
+  // Abstract methods for status messages - to be implemented by each tool
+  protected abstract getStartMessage(): string;
+  protected abstract getSuccessMessage(result?: any): string;
 
   protected async getSpotifyProvider(): Promise<SpotifyProvider> {
     return SpotifyProvider.buildClientWithAuth(this.userId);
@@ -172,7 +246,51 @@ export abstract class BaseSpotifySimpleTool extends DynamicTool {
       return result;
     } catch (error) {
       this.logger.error(`Error in ${this.name}:`, { error: error instanceof Error ? error.message : String(error) });
+
+      // Update status message with error if available
+      if (this.messageService && this.chatId) {
+        try {
+          await this.messageService.finalizeStatusMessage(
+            this.userId,
+            this.chatId,
+            '❌ An error occurred while processing your request. Please try again.',
+          );
+        } catch (statusError) {
+          this.logger.error('Failed to update status message with error:', {
+            error: statusError instanceof Error ? statusError.message : String(statusError),
+          });
+        }
+      }
+
       throw ErrorHandler.handleError(error, { userId: this.userId, operation: this.name });
     }
+  }
+
+  protected async executeWithStatusUpdates(operation: () => Promise<string>): Promise<string> {
+    if (!this.messageService || !this.chatId) {
+      // Fallback to normal execution if status updates are not available
+      return operation();
+    }
+
+    // Create initial status message
+    const startMessage = this.getStartMessage();
+    await this.messageService.createStatusMessage(this.userId, this.chatId, startMessage);
+
+    // Execute the operation
+    const result = await operation();
+
+    // Parse result to extract data for success message
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(result);
+    } catch {
+      parsedResult = { message: result };
+    }
+
+    // Finalize with success message
+    const successMessage = this.getSuccessMessage(parsedResult);
+    await this.messageService.finalizeStatusMessage(this.userId, this.chatId, successMessage);
+
+    return result;
   }
 }

@@ -103,7 +103,7 @@ export class Handler {
 
     const history = await this.messageRepository.findByUserId(userId);
 
-    const agent = new SpotifyAgentProvider(userId);
+    const agent = new SpotifyAgentProvider(userId, this.messageService, message.chat.id);
 
     const response = await agent.run({
       input: message.text,

@@ -1,12 +1,28 @@
 import { Prompts } from '@/agents/prompts';
 import { BaseSpotifySimpleTool } from '@/agents/tools/base/spotify-tool';
+import { MessageService } from '@/services/message';
 
 export class ResumeTrackTool extends BaseSpotifySimpleTool {
-  constructor(userId: string) {
-    super('resumeTrack', Prompts.ResumeTrackTool, userId);
+  constructor(userId: string, messageService?: MessageService, chatId?: string | number) {
+    super('resumeTrack', Prompts.ResumeTrackTool, userId, messageService, chatId);
+  }
+
+  protected getStartMessage(): string {
+    return '▶️ Resuming playback...';
+  }
+
+  protected getSuccessMessage(): string {
+    return '▶️ Playback resumed';
   }
 
   protected async execute(): Promise<string> {
+    if (this.messageService && this.chatId) {
+      return this.executeWithStatusUpdates(() => this.performResume());
+    }
+    return this.performResume();
+  }
+
+  private async performResume(): Promise<string> {
     const spotify = await this.getSpotifyProvider();
     const device = await this.validateActiveDevice(spotify);
 
@@ -18,7 +34,7 @@ export class ResumeTrackTool extends BaseSpotifySimpleTool {
     });
   }
 
-  static create(userId: string) {
-    return new ResumeTrackTool(userId);
+  static create(userId: string, messageService?: MessageService, chatId?: string | number) {
+    return new ResumeTrackTool(userId, messageService, chatId);
   }
 }

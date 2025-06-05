@@ -1,11 +1,13 @@
 import { Middlewares } from '@/middlewares';
 import { AuthRepository } from '@/repositories/auth.repository';
 import { SpotifyAuthService } from '@/services/auth';
+import { MessageService } from '@/services/message';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
 
 export const callback = Middlewares.base(async (event) => {
   const authRepository = new AuthRepository();
+  const messageService = new MessageService();
 
   const code = z.string().parse(event.queryStringParameters?.code);
   const state = z.string().parse(event.queryStringParameters?.state);
@@ -29,6 +31,8 @@ export const callback = Middlewares.base(async (event) => {
     scope: token.scope,
     tokenType: token.token_type,
   });
+
+  await messageService.sendMessage('Sucessfully authenticated with Spotify.', auth[0].userId);
 
   return {
     statusCode: 200,
